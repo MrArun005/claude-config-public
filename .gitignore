@@ -1,0 +1,14 @@
+# Never commit credentials or conversation history, even if copied here by mistake.
+.credentials.json
+*.credentials.json
+history.jsonl
+sessions/
+shell-snapshots/
+todos/
+*.jsonl
+
+# Local noise
+.DS_Store
+Thumbs.db
+node_modules/
+*.log

@@ -1,0 +1,28 @@
+# Memory Index
+
+- [Reuse existing components over creating new ones](feedback_reuse_existing.md) — prefer importing existing skeletons/UI over duplicating
+- [HRMS project moved to separate repo](reference_hrms_project.md) — HRMS work continues at `C:\Users\malliar\hrms\`
+- [Test scenarios — keep small, API-driven, fast](feedback_test_scenarios.md) — minimize DB writes; validate variations via network/console, not by N parameterized UI runs
+- [Bulk lifecycle + date-filter behaviors (May 2026)](project_bulk_lifecycle_date_filters.md) — date range needs BOTH ends to apply; bulk lifecycle confirm gated on all target statuses chosen
+- [User-facing docs — no colors, no dev jargon](feedback_user_docs_style.md) — strip color cues and dev terms (toast/JSON/boolean) from end-user guides
+- [Version comparator status + API contract](project_version_comparator.md) — wired to real BE auditLog (requestorigin:DCM-UI, full before/after, modifiedParty.id); picker + compare routes + sidebar entry; mock deleted; all work uncommitted by request
+- [Tecnotree theme pending follow-ups](project_theme_pending.md) — 3 deferred items on Tecnotree_design branch: accent scale (broken), Roboto font, categorical colors
+- [3D amusement park on Desktop](project_amusement_park.md) — standalone app at `C:\Users\malliar\Desktop\amusement-park`; kill duplicate `next dev` before starting (EPERM .next\trace)
+- [Arun's developer background & job target](user_profile_background.md) — full-stack JS, 3-5 yrs, aiming remote FAANG SDE-2; gaps in DSA mediums + system design
+- [FAANG SDE-2 roadmap](project_faang_roadmap.md) — 6-9mo plan at 2-3h/day: DSA patterns + system design + referrals + auth-service portfolio project
+- [Python location + football-tracker project](reference_python_football_tracker.md) — Python at %LOCALAPPDATA%\Programs\Python\Python312; CV project on Desktop, 43 tests pass, pushed to github.com/MrArun005/LiveStreamingFootBall
+- [System design learning tracker](project_system_design_learning.md) — teaching Arun SD from scratch, one topic/session; Topic 1 (scaling) done, resume at Topic 5 Load Balancers
+- [DSA pattern-drilling tracker](project_dsa_patterns.md) — teaching ~14 core interview patterns, recognition-focused; Big-O + Two Pointers + Sliding Window done; SWITCHED to Blind 75 walkthrough (grouped order), resume at Arrays&Hashing #1 Two Sum
+- [No Co-Authored-By in commits](feedback_no_coauthor_commit.md) — omit the Claude trailer from commit messages/PRs
+- [dpm test tooling pinned to old versions](project_test_tooling.md) — Vitest/Vite/jsdom pinned due to Node 20.18; don't bump until Node ≥20.19
+- [First UI test suite (schemas + utils)](project_ui_test_suite.md) — 54 Vitest tests, Layers 0-2; Layer 3/E2E deferred; uncommitted
+- [Prefer decisive action](feedback_prefer_decisive_action.md) — act on the obvious interpretation; avoid clarifying questions unless high-stakes/ambiguous
+- [Job-hunt batch 2026-07-22](project_job_hunt_batch.md) — 52 jobs JOB-011..050+PTL, Desktop dashboard UI, résumé variants; Edge headless for PDFs (no puppeteer)
+- [M365/Teams connector account](reference_m365_teams_account.md) — connector authorized as Arun.mallikarjun@tecnotree.com, not the bssexpress.com login
+- [Teams monitoring setup](project_teams_monitoring.md) — core team (Vijaya/Roja/Vrashabh/Sudarshan/Ashutosh), Internal DPROM + PME-V standup chat IDs, notify on tags/UI issues
+- [Deloitte interview-prep teaching](project_deloitte_prep.md) — course artifact published; Lesson 1 (Python for JS devs) done 2026-07-27, resume at Module 2
+- [Price type "Discount" topic](project_price_type_discount.md) — Arun flagged as active; duration value/unit required for DPM Shipping/Product promos; discussion specifics TBD
+- [Create AND edit, always both](feedback_create_and_edit_both.md) — promotion-flow changes must hit both flows in one pass; grep error text to find every copy
+- [List files to push](feedback_list_files_to_push.md) — when Arun commits himself, always enumerate exact file paths per logical commit
+- [Show areas while building + token-efficient](feedback_show_areas_token_efficient.md) — announce each new code area entered; prefer fewer tokens over speed, sessions should last longer
+- [No unasked code changes](feedback_no_unasked_code_changes.md) — 'write test cases' = test files ONLY; never refactor/extract src code preemptively; present constraints and let Arun decide
