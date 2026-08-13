@@ -26,3 +26,7 @@
 - [List files to push](feedback_list_files_to_push.md) — when Arun commits himself, always enumerate exact file paths per logical commit
 - [Show areas while building + token-efficient](feedback_show_areas_token_efficient.md) — announce each new code area entered; prefer fewer tokens over speed, sessions should last longer
 - [No unasked code changes](feedback_no_unasked_code_changes.md) — 'write test cases' = test files ONLY; never refactor/extract src code preemptively; present constraints and let Arun decide
+- [Claude config backed up to GitHub](reference_claude_config_backup.md) — private repo MrArun005/claude-config; staging dir `~/claude-config`, never git-init `~/.claude`
+- [Verified résumé facts + file locations](reference_resume_facts.md) — Senior SWE @ Tecnotree Convergence since Oct 2021; resume-tailor folder is GONE; use pypdf not Word
+- [Pending push to develop](project_pending_develop_push.md) — NonCompatibility + one other change go to `develop` ONLY when Arun asks; never proactively
+- [Frontend interview roadmap (8 weeks)](project_frontend_interview_roadmap.md) — downloaded PDF plan, 3h/day; conflicts in target with the FAANG SDE-2 roadmap — ask which is active
