@@ -16,6 +16,8 @@ Usage:
   python3 bms_api.py toxic <REGIONCODE>            # full Toxic sweep for a city
 """
 
+from __future__ import annotations
+
 import json
 import sys
 import time
