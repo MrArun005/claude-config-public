@@ -21,6 +21,7 @@ apply/
   adapters/generic_form.py   rung-1 deterministic adapter
   runner.py              the orchestrator — walks rungs 1-4                 (P3)
   batch.py               a jobs file of many postings, run serially
+  import_jobhunt.py      build that jobs file from the job-hunt skill
 state/
   ledger.py              sqlite, job_url UNIQUE — never apply twice         (P2)
   checkpoint.py          per-field atomic checkpoints — never lose 80%      (P2)
@@ -67,6 +68,7 @@ python -m apply.runner <job-url> --company "Acme" --role "Senior Frontend"
 python -m apply.runner <job-url> --dry-run     # fill and stop, never submit
 python -m apply.runner <job-url> --headed      # watch it work
 
+python -m apply.import_jobhunt <applications-dir> -o jobs.yaml   # from the skill
 python -m apply.batch jobs.yaml --plan  # a whole list: inspect, fill nothing
 python -m apply.batch jobs.yaml         # a whole list: SUBMIT
 
@@ -74,6 +76,24 @@ python -m state.review                # answer what parked, write it back
 python -m state.review --list
 python -m identity.bootstrap proxify  # headed login when re-auth fails
 ```
+
+## Where the job links come from
+
+Discovery is the **job-hunt skill**'s job, not this tool's. It searches, tailors
+a résumé per posting, and writes `applications/` with an `INDEX.md` table
+(Company, Role, Posting) plus one `JOB-NNN - <Company> - <Role>/` folder per job
+holding that job's tailored PDF. That is exactly the input a batch needs:
+
+```bash
+python -m apply.import_jobhunt "…/applications" -o jobs.yaml --skip-applied
+python -m apply.batch jobs.yaml --plan
+```
+
+Each posting then applies with **its own tailored résumé**. The import is a
+translation and nothing more — it skips and names anything it will not guess at:
+a row with no posting URL, a portal row with no folder, a row missing company or
+role, and a folder holding several PDFs (it falls back to the generic résumé and
+lists them, because choosing is yours).
 
 ## First run on a real posting
 

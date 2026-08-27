@@ -325,6 +325,12 @@ async def main() -> int:
     import test_mapping
     check("every ordering trap maps correctly", test_mapping.run() == 0)
 
+    # 9b ------------------------------------------------------------
+    print("\n[9b] job-hunt skill -> jobs file bridge (pure parsing)")
+    import test_import_jobhunt
+    check("every job-hunt import case correct",
+          test_import_jobhunt.main() == 0)
+
     # 10 ------------------------------------------------------------
     print("\n[10] question catalogue is coherent and fully reachable")
     from state import seed
