@@ -129,6 +129,19 @@ async def run(job_url: str, *, company: str | None = None, role: str | None = No
     platform = platform_of(job_url)
 
     con = ledger.connect()
+    try:
+        return await _run_with_ledger(con, job_url, app_id, platform, company,
+                                      role, headless, dry_run, plan_only,
+                                      resolver, bank, started)
+    finally:
+        # Closed here, not in the inner finally: the duplicate-skip path returns
+        # before the browser is ever opened, and used to leak the connection.
+        con.close()
+
+
+async def _run_with_ledger(con, job_url, app_id, platform, company, role,
+                           headless, dry_run, plan_only, resolver, bank,
+                           started) -> dict:
     fresh = ledger.register(con, app_id, job_url, platform)
     if not fresh:
         row = ledger.lookup(con, job_url) or {}
@@ -254,7 +267,6 @@ async def run(job_url: str, *, company: str | None = None, role: str | None = No
     finally:
         if pw is not None and ctx is not None:
             await browser.close_context(pw, ctx)
-        con.close()
 
 
 def _park(con, app_id: str, job_url: str, rung: int, reasons: list[str],

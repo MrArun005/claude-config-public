@@ -309,6 +309,16 @@ async def main() -> int:
     check("plan-mode subprocess passed", proc.returncode == 0,
           (proc.stdout + proc.stderr).strip()[-200:])
 
+    # 8d ------------------------------------------------------------
+    print("\n[8d] apply.batch: jobs file, per-job résumé, dedup across runs")
+    proc = subprocess.run([sys.executable, "tests/test_batch.py"],
+                          capture_output=True, text=True, timeout=280)
+    for line in proc.stdout.splitlines():
+        if line.strip().startswith(("PASS", "FAIL")):
+            print(f"    {line.strip()}")
+    check("batch subprocess passed", proc.returncode == 0,
+          (proc.stdout + proc.stderr).strip()[-200:])
+
     # 9 -------------------------------------------------------------
     print("\n[9] alias-table ordering (pure lookup, no browser)")
     sys.path.insert(0, str(Path(__file__).parent / "tests"))

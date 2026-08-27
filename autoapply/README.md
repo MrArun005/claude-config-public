@@ -20,6 +20,7 @@ apply/
   templates.py           strict Jinja2 rendering for TEMPLATE answers
   adapters/generic_form.py   rung-1 deterministic adapter
   runner.py              the orchestrator — walks rungs 1-4                 (P3)
+  batch.py               a jobs file of many postings, run serially
 state/
   ledger.py              sqlite, job_url UNIQUE — never apply twice         (P2)
   checkpoint.py          per-field atomic checkpoints — never lose 80%      (P2)
@@ -65,6 +66,9 @@ python -m apply.runner <job-url> --plan         # show what it WOULD do, fill no
 python -m apply.runner <job-url> --company "Acme" --role "Senior Frontend"
 python -m apply.runner <job-url> --dry-run     # fill and stop, never submit
 python -m apply.runner <job-url> --headed      # watch it work
+
+python -m apply.batch jobs.yaml --plan  # a whole list: inspect, fill nothing
+python -m apply.batch jobs.yaml         # a whole list: SUBMIT
 
 python -m state.review                # answer what parked, write it back
 python -m state.review --list
@@ -151,7 +155,7 @@ records the URL it landed on and you confirm.
 ## Tests
 
 ```bash
-python p3_test.py    # 37 checks (+19 across two subprocesses), real Chromium against local fixture forms
+python p3_test.py    # 37 checks (+29 across three subprocesses), real Chromium against local fixture forms
 python p0_test.py    # OTP retrieval; needs your Gmail app password
 ```
 

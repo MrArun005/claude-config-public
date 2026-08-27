@@ -22,8 +22,11 @@ CREATE TABLE IF NOT EXISTS applications (
 
 def connect() -> sqlite3.Connection:
     DB.parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(DB)
+    # timeout: a batch runs applications back to back, so a connection that has
+    # not finished releasing yet should be waited out, not failed on.
+    con = sqlite3.connect(DB, timeout=30)
     con.execute(SCHEMA)
+    con.commit()          # do not leave the DDL sitting in an open transaction
     return con
 
 def register(con, app_id: str, job_url: str, platform: str) -> bool:
@@ -36,6 +39,11 @@ def register(con, app_id: str, job_url: str, platform: str) -> bool:
         con.commit()
         return True
     except sqlite3.IntegrityError:
+        # The failed INSERT leaves a write transaction open. Without this
+        # rollback the connection keeps the database locked, and the NEXT job in
+        # a batch fails with "database is locked" -- a duplicate URL poisoning
+        # every application after it.
+        con.rollback()
         return False
 
 def lookup(con, job_url: str) -> dict | None:
