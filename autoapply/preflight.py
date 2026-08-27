@@ -98,6 +98,56 @@ def check_paths_and_profile() -> None:
         record(OK, "profile lock", "free")
 
 
+# Standard install locations. preflight only ever REPORTS what it finds on
+# disk here — it does not assume any of these exist.
+BROWSER_CANDIDATES = {
+    "win32": [
+        (r"C:\Program Files\Google\Chrome\Application\chrome.exe", "chrome"),
+        (r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe", "chrome"),
+        (r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe", "msedge"),
+        (r"C:\Program Files\Microsoft\Edge\Application\msedge.exe", "msedge"),
+    ],
+    "darwin": [
+        ("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "chrome"),
+        ("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge", "msedge"),
+    ],
+    "linux": [
+        ("/opt/google/chrome/chrome", "chrome"),
+        ("/usr/bin/google-chrome", "chrome"),
+        ("/opt/microsoft/msedge/msedge", "msedge"),
+        ("/usr/bin/chromium", "chromium"),
+    ],
+}
+
+
+def find_browsers() -> list[tuple[str, str]]:
+    plat = "win32" if sys.platform.startswith("win") else (
+        "darwin" if sys.platform == "darwin" else "linux")
+    return [(path, channel)
+            for path, channel in BROWSER_CANDIDATES.get(plat, [])
+            if Path(path).exists()]
+
+
+def check_browser_present() -> None:
+    if os.environ.get("AUTOAPPLY_CHROME_PATH"):
+        p = Path(os.environ["AUTOAPPLY_CHROME_PATH"])
+        record(OK if p.exists() else BAD, "browser (env override)",
+               f"AUTOAPPLY_CHROME_PATH={p}" +
+               ("" if p.exists() else " — that file does not exist"))
+        return
+    found = find_browsers()
+    if not found:
+        record(WARN, "browser on disk",
+               "no Chrome or Edge at a standard location; if the launch check "
+               "below fails, set AUTOAPPLY_CHROME_PATH to your browser binary")
+        return
+    path, channel = found[0]
+    note = f"{path} (channel {channel!r})"
+    if channel != "chrome":
+        note += f" — set AUTOAPPLY_BROWSER_CHANNEL={channel}"
+    record(OK, "browser on disk", note)
+
+
 async def check_chrome() -> None:
     """The check that matters most, because it is machine-specific."""
     from identity import browser
@@ -106,9 +156,16 @@ async def check_chrome() -> None:
     except Exception as exc:
         msg = str(exc).split("\n")[0][:160]
         hint = ""
-        if "channel" in msg.lower() or "executable" in msg.lower():
-            hint = (" — set AUTOAPPLY_CHROME_PATH to your Chrome/Chromium binary, "
-                    "or install Google Chrome")
+        if "channel" in msg.lower() or "not found" in msg.lower() \
+                or "executable" in msg.lower():
+            found = find_browsers()
+            if found:
+                path, channel = found[0]
+                hint = (f" — but {path} exists: run with "
+                        f"AUTOAPPLY_BROWSER_CHANNEL={channel}")
+            else:
+                hint = (" — set AUTOAPPLY_CHROME_PATH to a Chromium-based browser "
+                        "binary (Edge works: channel msedge)")
         record(BAD, "chrome launches", f"{msg}{hint}")
         return
     try:
@@ -245,6 +302,7 @@ async def main() -> int:
     check_aliases()
     check_ledger()
     check_otp()
+    check_browser_present()
     await check_chrome()
     return report()
 

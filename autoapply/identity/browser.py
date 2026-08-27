@@ -72,10 +72,17 @@ async def open_context(headless: bool = True):
         "viewport": {"width": 1440, "height": 900},
         "args": ["--disable-blink-features=AutomationControlled"],
     }
+    # Three ways to say which browser, most specific first:
+    #   AUTOAPPLY_CHROME_PATH    an explicit binary
+    #   AUTOAPPLY_BROWSER_CHANNEL  a Playwright channel — "msedge" is supported
+    #                            and verified, so Edge works without installing
+    #                            Chrome (any Chromium-based browser keeps the
+    #                            persistent-profile guarantees this layer needs)
+    #   default                  channel="chrome"
     if exe := os.environ.get("AUTOAPPLY_CHROME_PATH"):
         launch["executable_path"] = exe
     else:
-        launch["channel"] = "chrome"
+        launch["channel"] = os.environ.get("AUTOAPPLY_BROWSER_CHANNEL", "chrome")
 
     try:
         ctx = await pw.chromium.launch_persistent_context(**launch)

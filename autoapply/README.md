@@ -36,6 +36,9 @@ p3_test.py               P3 exit criterion (real Chromium, local fixtures)
 
 ## Setup
 
+Running it on your own machine: see **QUICKSTART.md** for the Windows/macOS
+walkthrough, including using Edge if you do not have Chrome.
+
 ```bash
 pip install -r requirements.txt && playwright install chromium
 mkdir -p ~/.autoapply && chmod 700 ~/.autoapply
