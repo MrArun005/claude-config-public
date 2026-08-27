@@ -16,6 +16,7 @@ memory/                Per-project memory, one directory per project
   <project-key>/
     MEMORY.md          Index loaded into context each session
     *.md               One fact per file
+autoapply/             OwnCrawl v2 job-application agent (own README)
 ```
 
 The `<project-key>` directory names mirror Claude Code's own encoding of the
@@ -34,6 +35,14 @@ for d in memory/*/; do
   cp "$d"*.md ~/.claude/projects/"$proj"/memory/
 done
 ```
+
+## autoapply
+
+`autoapply/` is a standalone tool rather than Claude Code config, kept here so
+it is backed up alongside the job-hunt skill it complements. Its own README
+covers setup and the rung 1-4 execution ladder. Its answer bank
+(`autoapply/state/answers.yaml`) holds personal data and is gitignored — only
+`answers.example.yaml` is tracked.
 
 ## What is deliberately excluded
 

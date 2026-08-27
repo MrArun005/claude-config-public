@@ -1,0 +1,40 @@
+# Answer bank TEMPLATE. Copy to answers.yaml and fill it in ONE sitting.
+#
+#   cp state/answers.example.yaml state/answers.yaml
+#
+# answers.yaml is gitignored — it holds personal data and never enters git.
+#
+# Two rules the code enforces, not just documents:
+#   * `sourced: true` means YOU wrote this exact string. The agent selects, it
+#     never composes.
+#   * A value still containing a placeholder (TODO, XX, ??, or empty) is treated
+#     as NOT sourced, so the submit gate parks the application instead of
+#     sending "TODO@gmail.com" to a real employer. Filling these in is what
+#     switches auto-submit on.
+
+full_name:            { value: "TODO First Last",          sourced: true }
+email:                { value: "TODO@example.com",         sourced: true }
+phone:                { value: "+00-TODO",                 sourced: true }
+location:             { value: "TODO City, Country",       sourced: true }
+notice_period:        { value: "TODO days",                sourced: true }
+work_authorisation:   { value: "TODO — citizen",           sourced: true }
+requires_sponsorship: { value: false,                      sourced: true }
+years_experience:     { value: 0,                          sourced: true }
+years_react:          { value: 0,                          sourced: true }
+years_nextjs:         { value: 0,                          sourced: true }
+years_javascript:     { value: 0,                          sourced: true }
+current_company:      { value: "TODO",                     sourced: true }
+current_title:        { value: "TODO",                     sourced: true }
+linkedin:             { value: "https://linkedin.com/in/TODO", sourced: true }
+github:               { value: "https://github.com/TODO",  sourced: true }
+portfolio:            { value: "https://TODO",             sourced: true }
+salary_expectation:   { value: "TODO XX–YY LPA",           sourced: true }
+remote_preference:    { value: "TODO",                     sourced: true }
+
+# Absolute path to the résumé PDF the file inputs should upload. Required by
+# any form with <input type="file">; a missing or placeholder path parks.
+resume_path:          { value: "TODO/absolute/path/resume.pdf", sourced: true }
+
+# TEMPLATE policy: rendered with Jinja2 under StrictUndefined, so a variable the
+# runner cannot supply raises instead of silently rendering an empty sentence.
+why_this_company:     { policy: TEMPLATE, template: templates/why.j2 }

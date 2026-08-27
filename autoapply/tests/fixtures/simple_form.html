@@ -1,0 +1,21 @@
+<!doctype html><title>Apply — Senior Frontend Engineer</title>
+<h1>Apply: Senior Frontend Engineer</h1>
+<form method="get" action="thanks.html">
+  <label for="first_name">First Name *</label><input id="first_name" name="first_name" required>
+  <label for="last_name">Last Name *</label><input id="last_name" name="last_name" required>
+  <label>Email *<input type="email" name="email" required></label>
+  <input name="phone" aria-label="Phone Number" required>
+  <label for="loc">Location</label><input id="loc" name="location">
+  <label for="q_88213771">How many years of React experience do you have? *</label>
+  <input id="q_88213771" name="question_88213771[value]" required>
+  <label for="q_5">Total years of experience</label><input id="q_5" name="question_5[value]">
+  <label for="np">Notice period</label>
+  <select id="np" name="notice"><option value="">Select…</option>
+    <option>15 days</option><option>30 days</option><option>90 days</option></select>
+  <label for="li">LinkedIn</label><input id="li" name="linkedin">
+  <label for="spons">Do you require visa sponsorship?</label>
+  <select id="spons" name="sponsorship"><option value="">Select…</option>
+    <option>Yes</option><option>No</option></select>
+  <input type="hidden" name="csrf" value="tok">
+  <button type="submit">Submit application</button>
+</form>

@@ -1,0 +1,10 @@
+__pycache__/
+*.db
+secrets.env
+chrome-profile/
+applications/
+
+# Personal answer bank: real values live here, never in git.
+state/answers.yaml
+field-resolutions.json
+p0_results.txt

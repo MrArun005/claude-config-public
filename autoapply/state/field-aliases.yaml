@@ -1,0 +1,60 @@
+# Label/name → answer-bank key. Ordered: FIRST MATCH WINS, same rule as
+# apply.adapter.dispatch. Anything unmatched raises UnknownField and drops to
+# rung 2 — the table is deliberately allowed to be incomplete.
+#
+# Patterns are regexes matched against the *normalised* label (lowercased,
+# whitespace collapsed, required/optional markers stripped — see
+# apply.fields.normalise_label). Order matters a lot: the React/Next.js/JS
+# year questions must precede the generic "years of experience" pattern, or
+# "years of React experience" answers with the wrong number.
+
+by_name:            # exact match on the name attribute, digits stripped
+  first_name:       first_name
+  fname:            first_name
+  last_name:        last_name
+  lname:            last_name
+  email:            email
+  phone:            phone
+  mobile:           phone
+  resume:           resume_path
+  cv:               resume_path
+  linkedin:         linkedin
+  github:           github
+  website:          portfolio
+  portfolio:        portfolio
+  location:         location
+
+by_label:
+  - { match: '^(first|given)\s*name',                        key: first_name }
+  - { match: '^(last|family|sur)\s*name',                    key: last_name }
+  - { match: '^(full\s*)?name$',                             key: full_name }
+  - { match: 'e-?mail',                                      key: email }
+  - { match: 'phone|mobile|contact number',                  key: phone }
+  - { match: 'linkedin',                                     key: linkedin }
+  - { match: 'github',                                       key: github }
+  - { match: 'portfolio|personal (web)?site|^website',       key: portfolio }
+  - { match: 'r[ée]sum[ée]|\bcv\b|curriculum',               key: resume_path }
+  - { match: 'notice period',                                key: notice_period }
+
+  # Specific technology-year questions BEFORE the generic one.
+  - { match: 'years?.*\breact\b',                            key: years_react }
+  - { match: 'years?.*next\.?\s?js',                         key: years_nextjs }
+  - { match: 'years?.*(javascript|\bjs\b)',                  key: years_javascript }
+  - { match: 'years?.*experience|total experience',          key: years_experience }
+
+  - { match: 'current (company|employer)',                   key: current_company }
+  - { match: 'current (title|role|position)|job title',      key: current_title }
+  - { match: '(expected|desired).*(salary|ctc|compensation)|salary expectation',
+      key: salary_expectation }
+  - { match: 'sponsor',                                      key: requires_sponsorship }
+  - { match: 'authoris|authoriz|right to work|visa status|work permit',
+      key: work_authorisation }
+  - { match: 'location|city|where are you based|based in',   key: location }
+  - { match: 'remote|work preference|willing to relocate',   key: remote_preference }
+  - { match: 'why (do you want to |are you interested in )?(work|join|apply)|why (this |our )?(company|us)|cover letter',
+      key: why_this_company }
+
+  # Legal consent is NEVER inferred. The bank must carry an explicit sourced
+  # answer, otherwise the application parks rather than agreeing on your behalf.
+  - { match: 'privacy|terms|consent|gdpr|data processing|policy',
+      key: consent_privacy }
