@@ -6,14 +6,21 @@ field_signature, answer_key)` only pays off if a field can be *recognised*
 again on the next run, which presupposes a signature computed from the live
 DOM. Hardcoded selectors would make that cache dead weight.
 
-The signature strips digits from the name/id. Verified necessity: a real ATS
-question renders as
+The signature strips digits from the name/id, because ATS platforms generate
+per-posting ids for custom questions, e.g.
 
     <label for="q_88213771">How many years of React experience …</label>
     <input id="q_88213771" name="question_88213771[value]">
 
-and those digits change per posting. Keep them and every posting looks like a
-brand-new field, so a resolution cached on Monday never hits on Tuesday.
+Keep the digits and every posting looks like a brand-new field, so a resolution
+cached on Monday never hits on Tuesday.
+
+Status of that claim: the *mechanism* is verified — p3_test.py proves signatures
+stay identical when the generated ids change, which is what makes the rung-2
+cache hit. The exact attribute shape above has NOT been checked against a live
+posting from this environment (the network policy blocks job boards), so treat
+it as a representative pattern rather than a confirmed Greenhouse/Lever literal.
+Confirm against a real apply page before relying on the specific spelling.
 """
 from __future__ import annotations
 

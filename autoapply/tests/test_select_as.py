@@ -106,10 +106,37 @@ async def main() -> int:
         check("dropdown got '90 days', not the sentence",
               "notice=90+days" in out.get("landed_on", ""),
               out.get("landed_on", "")[-70:])
+        print("[c] number input: prose answer + numeric alternate")
+        _reset()
+        # "₹14 LPA (negotiable)" is the right answer to a free-text salary
+        # field and is silently rejected by <input type="number">.
+        numeric = _bank(
+            'salary_expectation: { value: "₹14 LPA (negotiable)", '
+            'select_as: "14", sourced: true }\n'
+            'notice_period: { value: "60 days", sourced: true }\n', "num.yaml")
+        out = await runner.run(f"{base}/number_salary.html", bank=numeric)
+        check("submitted with the numeric alternate",
+              out["status"] == "submitted", str(out)[:160])
+        check("number field got 14, not the prose",
+              "expected_salary=14" in out.get("landed_on", ""),
+              out.get("landed_on", "")[-70:])
+
+        print("[d] number input with NO numeric alternate -> must park")
+        _reset()
+        prose_only = _bank(
+            'salary_expectation: { value: "₹14 LPA (negotiable)", sourced: true }\n'
+            'notice_period: { value: "60 days", sourced: true }\n', "prose.yaml")
+        out = await runner.run(f"{base}/number_salary.html", bank=prose_only)
+        reasons = " ".join(out.get("reasons", []))
+        check("parked rather than sending an empty number",
+              out["status"] == "parked", str(out)[:140])
+        check("tells you to add a numeric select_as",
+              "not a number" in reasons, reasons[:140])
     finally:
         httpd.shutdown()
 
-    print(f"select_as: {4 - len(failures)}/4 checks passed")
+    total = 8
+    print(f"select_as: {total - len(failures)}/{total} checks passed")
     return 1 if failures else 0
 
 

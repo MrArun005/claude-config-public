@@ -73,9 +73,11 @@ python -m identity.bootstrap proxify  # headed login when re-auth fails
 | 3 | no adapter matched | park for review |
 | 4 | anything unexpected | park, flag for a headed handoff — never a blind retry |
 
-Field signatures strip digits from names and ids, because a real ATS renders
-`name="question_88213771[value]"` where the number changes per posting. Keep the
-digits and a resolution cached on Monday never hits on Tuesday.
+Field signatures strip digits from names and ids, because ATS platforms generate
+per-posting ids for custom questions. Keep the digits and a resolution cached on
+Monday never hits on Tuesday. The mechanism is tested (signatures survive
+regenerated ids); the exact attribute spelling is a representative pattern, not
+one confirmed against a live posting — verify it on a real apply page.
 
 ## The submit gate is the safety boundary
 
@@ -117,7 +119,7 @@ records the URL it landed on and you confirm.
 ## Tests
 
 ```bash
-python p3_test.py    # 37 checks (+4 in a subprocess), real Chromium against local fixture forms
+python p3_test.py    # 37 checks (+8 in a subprocess), real Chromium against local fixture forms
 python p0_test.py    # OTP retrieval; needs your Gmail app password
 ```
 

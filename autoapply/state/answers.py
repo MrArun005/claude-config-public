@@ -96,7 +96,11 @@ class AnswerBank:
         return (self.path.parent / entry["template"]).resolve()
 
     def select_alt(self, question_key: str):
-        """A canonical alternate for closed-vocabulary controls.
+        """A canonical alternate for CONSTRAINED controls.
+
+        Applies to dropdowns, radio groups and number inputs — the name is
+        historical, the use is broader. A number input silently rejects
+        "₹14 LPA (negotiable)"; `select_as: "14"` gives it the bare figure.
 
         "90 days (negotiable to 60)" is the right answer to a free-text notice
         question and matches no dropdown option, so a `select_as: "90 days"`

@@ -276,6 +276,26 @@ class GenericFormAdapter:
             await group.nth(labels.index(opt)).check()
             return opt
 
+        if kind == "number":
+            # A number input silently rejects "₹14 LPA (negotiable)". The
+            # alternate supplies the bare figure. Note what is NOT done here:
+            # digits are never *extracted* from prose — that would be the
+            # system inventing "14" from a sentence, which is exactly the
+            # inference the submit gate exists to prevent. You write both.
+            for candidate in (value, alt):
+                if candidate is None:
+                    continue
+                text = _as_text(candidate).strip()
+                try:
+                    float(text)
+                except ValueError:
+                    continue
+                await page.fill(sel, text)
+                return text
+            raise _Unfillable(
+                f"{value!r} is not a number; add a numeric `select_as` to the "
+                f"answer bank entry")
+
         if kind in TEXT_TYPES or field.tag == "textarea":
             text = _as_text(value)
             await page.fill(sel, text)
