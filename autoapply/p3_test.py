@@ -299,6 +299,16 @@ async def main() -> int:
     check("select_as subprocess passed", proc.returncode == 0,
           (proc.stdout + proc.stderr).strip()[-200:])
 
+    # 8c ------------------------------------------------------------
+    print("\n[8c] --plan shows everything and touches nothing")
+    proc = subprocess.run([sys.executable, "tests/test_plan_mode.py"],
+                          capture_output=True, text=True, timeout=180)
+    for line in proc.stdout.splitlines():
+        if line.strip().startswith(("PASS", "FAIL", "[")):
+            print(f"    {line.strip()}")
+    check("plan-mode subprocess passed", proc.returncode == 0,
+          (proc.stdout + proc.stderr).strip()[-200:])
+
     # 9 -------------------------------------------------------------
     print("\n[9] alias-table ordering (pure lookup, no browser)")
     sys.path.insert(0, str(Path(__file__).parent / "tests"))

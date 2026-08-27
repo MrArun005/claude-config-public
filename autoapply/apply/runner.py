@@ -118,6 +118,7 @@ async def _find_submit(page):
 
 async def run(job_url: str, *, company: str | None = None, role: str | None = None,
               headless: bool = True, dry_run: bool = False,
+              plan_only: bool = False,
               resolver: Resolver | None = None,
               bank: AnswerBank | None = None) -> dict:
     """Apply to one job. Returns a result dict; never raises for flow control."""
@@ -170,6 +171,10 @@ async def run(job_url: str, *, company: str | None = None, role: str | None = No
             return _park(con, app_id, job_url, rung,
                          ["no adapter matched this page (rung 3: LLM engine is "
                           "the deferred P3-gate decision)"], started)
+
+        if plan_only:
+            rows = await adapter.plan(page, {"platform": platform})
+            return {"status": "plan", "app_id": app_id, "rung": 1, "plan": rows}
 
         # --- rungs 1 and 2 ------------------------------------------------
         result = None
@@ -272,10 +277,29 @@ def main(argv: list[str] | None = None) -> int:
                     help="run with a visible browser window")
     ap.add_argument("--dry-run", action="store_true",
                     help="fill and report, but never click submit")
+    ap.add_argument("--plan", action="store_true",
+                    help="show what WOULD be entered, filling nothing at all")
     args = ap.parse_args(argv)
 
     out = asyncio.run(run(args.job_url, company=args.company, role=args.role,
-                          headless=not args.headed, dry_run=args.dry_run))
+                          headless=not args.headed, dry_run=args.dry_run,
+                          plan_only=args.plan))
+
+    if out.get("status") == "plan":
+        rows = out["plan"]
+        print(f"{len(rows)} field(s) found. Nothing was filled or submitted.\n")
+        for r in rows:
+            mark = {"would fill": "+", "would select": "+"}.get(r["verdict"], "!")
+            print(f"  {mark} {r['label']}")
+            print(f"      key      : {r['key']}")
+            if r["value"] is not None:
+                print(f"      value    : {r['value']!r}  ({r['provenance']})")
+            print(f"      verdict  : {r['verdict']}")
+        blocked = [r for r in rows if r["verdict"] not in ("would fill", "would select",
+                                                           "skip — intentionally left blank")]
+        print(f"\n{len(rows) - len(blocked)}/{len(rows)} ready; "
+              f"{len(blocked)} would block the submit gate.")
+        return 0 if not blocked else 1
 
     print(f"status : {out['status']}")
     for key in ("app_id", "rung", "filled", "confirmed", "landed_on", "reason",

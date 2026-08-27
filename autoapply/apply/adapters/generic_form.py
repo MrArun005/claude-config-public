@@ -213,6 +213,49 @@ class GenericFormAdapter:
                     f"({entry.get('value')!r}) — fix with: python -m state.review")
         return f"no usable answer for {key!r}"
 
+    async def plan(self, page, profile: dict) -> list[dict]:
+        """Discover and resolve every field WITHOUT filling anything.
+
+        This is what you run first against a real ATS: it shows the mapping and
+        the exact value each control would receive, while making no change to
+        the page and sending nothing to the employer.
+        """
+        platform = profile.get("platform", "")
+        resolutions = load_resolutions()
+        sink = Result()
+        out: list[dict] = []
+
+        for field in await discover(page):
+            sig = field.signature
+            key = resolutions.get(f"{platform}::{sig}") or aliases.key_for(field)
+            row = {"label": field.describe(), "signature": sig,
+                   "key": key, "value": None, "provenance": None,
+                   "verdict": ""}
+            if key is None:
+                row["verdict"] = "rung 2 — no mapping for this question"
+            elif key == SKIP_KEY:
+                row["verdict"] = "skip — intentionally left blank"
+            else:
+                answer = self._answer_for(key, field, sink)
+                if answer is None:
+                    row["verdict"] = self._why_no_answer(key)
+                else:
+                    row["value"] = answer.value
+                    row["provenance"] = answer.provenance
+                    row["verdict"] = "would fill"
+                    if field.type.startswith("select") or field.type == "radio":
+                        opt = None
+                        for cand in (answer.value,
+                                     *_alternates(self.bank.select_alt(answer.name))):
+                            opt = _match_option(cand, field.options or ())
+                            if opt is not None:
+                                break
+                        row["value"] = opt if opt is not None else answer.value
+                        row["verdict"] = ("would select" if opt is not None
+                                          else "no matching option — would park")
+            out.append(row)
+        return out
+
     # --- answer selection ----------------------------------------------
     def _answer_for(self, key: str, field: FormField, result: Result) -> Filled | None:
         if key in aliases.DERIVED:

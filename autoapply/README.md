@@ -29,6 +29,7 @@ state/
   field-aliases.yaml     label/name -> answer key, first match wins
   templates/why.j2.example   "why this company" scaffold (tracked)
   templates/why.j2           your real version (gitignored)
+preflight.py             machine readiness check — run before the first real run
 p0_test.py               P0 exit criterion (needs your Gmail app password)
 p3_test.py               P3 exit criterion (real Chromium, local fixtures)
 ```
@@ -55,6 +56,9 @@ For platforms that need a login (P0/P1):
 ## Use
 
 ```bash
+python preflight.py                            # FIRST: is this machine ready?
+
+python -m apply.runner <job-url> --plan         # show what it WOULD do, fill nothing
 python -m apply.runner <job-url> --company "Acme" --role "Senior Frontend"
 python -m apply.runner <job-url> --dry-run     # fill and stop, never submit
 python -m apply.runner <job-url> --headed      # watch it work
@@ -63,6 +67,31 @@ python -m state.review                # answer what parked, write it back
 python -m state.review --list
 python -m identity.bootstrap proxify  # headed login when re-auth fails
 ```
+
+## First run on a real posting
+
+Nothing about a real ATS can be verified from a sandbox — no logged-in session,
+no résumé file, and job boards are commonly blocked by network policy. So the
+machine-specific facts are checked by a command instead of assumed:
+
+```bash
+python preflight.py     # python, playwright, a launchable Chrome, the profile
+                        # and its lock, bank coverage, the résumé file actually
+                        # existing, why.j2 actually rendering, the ledger, OTP
+                        # secrets. Exit 1 lists what must be fixed.
+```
+
+Then look before you leap. `--plan` discovers and resolves every field and
+prints the exact value each control would receive, **filling nothing and
+sending nothing**:
+
+```bash
+python -m apply.runner "<apply-url>" --company X --role Y --plan
+```
+
+Read that output. `--dry-run` is the next step up (it fills, but never clicks
+submit). Only drop the flags once both look right — a submitted application
+cannot be recalled.
 
 ## The ladder (apply/adapter.py §4)
 
@@ -119,7 +148,7 @@ records the URL it landed on and you confirm.
 ## Tests
 
 ```bash
-python p3_test.py    # 37 checks (+11 in a subprocess), real Chromium against local fixture forms
+python p3_test.py    # 37 checks (+19 across two subprocesses), real Chromium against local fixture forms
 python p0_test.py    # OTP retrieval; needs your Gmail app password
 ```
 
