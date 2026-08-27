@@ -4,9 +4,15 @@
 #
 # Patterns are regexes matched against the *normalised* label (lowercased,
 # whitespace collapsed, required/optional markers stripped — see
-# apply.fields.normalise_label). Order matters a lot: the React/Next.js/JS
-# year questions must precede the generic "years of experience" pattern, or
-# "years of React experience" answers with the wrong number.
+# apply.fields.normalise_label).
+#
+# Optional `type:` constrains a rule to a control type (regex, full match), so
+# one label can mean two things: "Cover letter" on a file input is a document,
+# on a textarea it is prose.
+#
+# ORDER MATTERS. The specific rule must precede the general one, or the general
+# one answers the specific question with the wrong value. Every ordering below
+# marked "BEFORE" is load-bearing and covered by p3_test.py's mapping table.
 
 by_name:            # exact match on the name attribute, digits stripped
   first_name:       first_name
@@ -18,43 +24,125 @@ by_name:            # exact match on the name attribute, digits stripped
   mobile:           phone
   resume:           resume_path
   cv:               resume_path
+  cover_letter:     cover_letter_path
   linkedin:         linkedin
   github:           github
   website:          portfolio
   portfolio:        portfolio
   location:         location
+  city:             location
+  zip:              postal_code
+  postal_code:      postal_code
+  address:          address_line
 
 by_label:
+  # ---------------------------------------------------------------- contact
   - { match: '^(first|given)\s*name',                        key: first_name }
   - { match: '^(last|family|sur)\s*name',                    key: last_name }
-  - { match: '^(full\s*)?name$',                             key: full_name }
+  - { match: '^(full\s*)?(legal\s*)?name$',                  key: full_name }
   - { match: 'e-?mail',                                      key: email }
   - { match: 'phone|mobile|contact number',                  key: phone }
   - { match: 'linkedin',                                     key: linkedin }
   - { match: 'github',                                       key: github }
   - { match: 'portfolio|personal (web)?site|^website',       key: portfolio }
-  - { match: 'r[ée]sum[ée]|\bcv\b|curriculum',               key: resume_path }
-  - { match: 'notice period',                                key: notice_period }
+  - { match: 'post(al)? code|\bzip\b|\bpin\s*code',          key: postal_code }
+  - { match: 'street|address line|^address',                 key: address_line }
 
-  # Specific technology-year questions BEFORE the generic one.
+  # -------------------------------------------------------------- documents
+  # File-typed rules first: an upload control asking for a "cover letter" wants
+  # a document, not the prose that the screening rule below would supply.
+  - { match: 'cover letter',       key: cover_letter_path, type: 'file' }
+  - { match: 'r[ée]sum[ée]|\bcv\b|curriculum', key: resume_path }
+
+  # --------------------------------------------------- work authorisation
+  # Country-specific BEFORE the generic rule, and each must NAME its country —
+  # a bare 'authoris\w*' here would swallow every authorisation question and
+  # answer all of them with the US one.
+  - { match: '(authoris\w*|authoriz\w*|eligible|permitted).*(united states|u\.?s\.?a?\b)|(united states|u\.?s\.?a?\b).*(authoris|authoriz)',
+      key: authorised_us }
+  - { match: '(authoris\w*|authoriz\w*|eligible|permitted).*(united kingdom|\buk\b|\beu\b|europe)|(united kingdom|\buk\b|\beu\b|europe).*(authoris|authoriz)',
+      key: authorised_uk_eu }
+  - { match: 'sponsor',                                      key: requires_sponsorship }
+  - { match: 'security clearance|\bclearance\b',             key: security_clearance }
+  - { match: 'nationality|citizenship|citizen of',           key: nationality }
+  - { match: 'right to work|visa status|work permit',        key: work_authorisation }
+  # Generic catch-all LAST in this block: an authorisation question that names
+  # no country still gets your general status rather than parking.
+  - { match: 'authoris\w*|authoriz\w*',                     key: work_authorisation }
+
+  # -------------------------------------------------------------- logistics
+  - { match: 'notice period|period of notice',               key: notice_period }
+  # "start date" is ambiguous: the current-employer one must win first.
+  - { match: '(start date|started).*(current|present)|current.*start date',
+      key: current_start_date }
+  - { match: 'earliest.*start|when can you start|available (from|to start)|start date',
+      key: earliest_start }
+  - { match: 'relocat',                                      key: willing_relocate }
+  - { match: 'time ?zone|overlap|working hours overlap',     key: timezone }
+  - { match: 'hours per week|weekly (availability|hours)',   key: hours_per_week }
+  - { match: 'employment type|full-?time or contract|contract or full',
+      key: employment_type }
+  - { match: 'remote|work preference|hybrid',                key: remote_preference }
+
+  # ----------------------------------------------------------- compensation
+  # Current BEFORE expected, and both BEFORE the bare "salary".
+  - { match: '(current|present).*(salary|ctc|compensation|package)',
+      key: current_ctc }
+  - { match: '(expected|desired|required).*(salary|ctc|compensation|package)|salary expectation',
+      key: salary_expectation }
+  - { match: 'hourly rate|rate per hour|hourly',             key: hourly_rate }
+  - { match: 'currency',                                     key: salary_currency }
+  - { match: 'salary|compensation|\bctc\b',                  key: salary_expectation }
+
+  # ------------------------------------------------------------- experience
+  # Specific technologies BEFORE the generic "years of experience".
   - { match: 'years?.*\breact\b',                            key: years_react }
   - { match: 'years?.*next\.?\s?js',                         key: years_nextjs }
+  - { match: 'years?.*type\s?script',                        key: years_typescript }
+  - { match: 'years?.*node\.?\s?js',                         key: years_nodejs }
+  - { match: 'years?.*\bpython\b',                           key: years_python }
+  - { match: 'years?.*(aws|gcp|azure|cloud)',                key: years_cloud }
+  - { match: 'years?.*(lead|mentor|manag)',                  key: years_leadership }
+  - { match: 'years?.*(test|automation|qa)',                 key: years_testing }
   - { match: 'years?.*(javascript|\bjs\b)',                  key: years_javascript }
-  - { match: 'years?.*experience|total experience',          key: years_experience }
+  - { match: 'years?.*experience|total experience|experience.*years',
+      key: years_experience }
 
-  - { match: 'current (company|employer)',                   key: current_company }
-  - { match: 'current (title|role|position)|job title',      key: current_title }
-  - { match: '(expected|desired).*(salary|ctc|compensation)|salary expectation',
-      key: salary_expectation }
-  - { match: 'sponsor',                                      key: requires_sponsorship }
-  - { match: 'authoris|authoriz|right to work|visa status|work permit',
-      key: work_authorisation }
-  - { match: 'location|city|where are you based|based in',   key: location }
-  - { match: 'remote|work preference|willing to relocate',   key: remote_preference }
-  - { match: 'why (do you want to |are you interested in )?(work|join|apply)|why (this |our )?(company|us)|cover letter',
-      key: why_this_company }
+  # ---------------------------------------------------------------- history
+  - { match: 'current (company|employer)|present employer',  key: current_company }
+  - { match: 'current (title|role|position)|job title|designation',
+      key: current_title }
+  - { match: 'reason for leaving|why (are you )?(looking|leaving)',
+      key: reason_for_leaving }
+  - { match: 'previously (been )?employed|worked (here|for us|at this company) before|former employee',
+      key: worked_here_before }
+  - { match: 'related to (a |any )?(current )?employee|family member.*employ',
+      key: related_to_employee }
 
-  # Legal consent is NEVER inferred. The bank must carry an explicit sourced
-  # answer, otherwise the application parks rather than agreeing on your behalf.
+  # -------------------------------------------------------------- education
+  - { match: 'gpa|cgpa|percentage|marks|grade',              key: grade }
+  - { match: 'graduat|year of completion|passing year',      key: graduation_year }
+  - { match: 'university|college|institution|school',        key: university }
+  - { match: 'degree|qualification|education level',         key: highest_degree }
+  - { match: 'english|language proficiency',                 key: english_level }
+
+  # ------------------------------------------------------- legal / consent
+  # Background check BEFORE the generic consent rule.
+  - { match: 'background (check|screening)|criminal',        key: background_check }
   - { match: 'privacy|terms|consent|gdpr|data processing|policy',
       key: consent_privacy }
+
+  # -------------------------------------------------------------- EEO block
+  # Voluntary by law. "Decline to self-identify" is a valid sourced answer.
+  - { match: 'gender|sex$',                                  key: gender }
+  - { match: 'race|ethnic',                                  key: ethnicity }
+  - { match: 'veteran|military',                             key: veteran_status }
+  - { match: 'disab',                                        key: disability_status }
+
+  # ------------------------------------------------------------- screening
+  - { match: 'how did you hear|referral|where did you (hear|find)|source',
+      key: referral_source }
+  - { match: 'achievement|proudest|most significant (project|work)',
+      key: notable_achievement }
+  - { match: 'why (do you want to |are you interested in )?(work|join|apply)|why (this |our )?(company|us)|cover letter|motivation',
+      key: why_this_company }

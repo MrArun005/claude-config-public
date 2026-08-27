@@ -275,6 +275,28 @@ async def main() -> int:
     finally:
         httpd.shutdown()
 
+    # 9 -------------------------------------------------------------
+    print("\n[9] alias-table ordering (pure lookup, no browser)")
+    sys.path.insert(0, str(Path(__file__).parent / "tests"))
+    import test_mapping
+    check("every ordering trap maps correctly", test_mapping.run() == 0)
+
+    # 10 ------------------------------------------------------------
+    print("\n[10] question catalogue is coherent and fully reachable")
+    from state import seed
+    qs = seed.all_questions()
+    check("catalogue has 30-60 questions", 30 <= len(qs) <= 60, f"{len(qs)}")
+    keys = [q["feeds"] for q in qs]
+    check("no duplicate answer keys", len(keys) == len(set(keys)))
+    import yaml as _yaml
+    tbl = _yaml.safe_load(Path("state/field-aliases.yaml").read_text())
+    reachable = set(tbl["by_name"].values()) | {r["key"] for r in tbl["by_label"]}
+    from apply.aliases import DERIVED
+    # assessment_willing feeds §5.5 eligibility routing, not a form field.
+    orphans = set(keys) - reachable - set(DERIVED) - {"assessment_willing"}
+    check("every catalogue key is reachable by the alias table",
+          not orphans, str(sorted(orphans)))
+
     # ----------------------------------------------------------------
     failed = [r for r in results if r[0] == FAIL]
     print(f"\n{'='*66}\n{len(results)-len(failed)}/{len(results)} checks passed")

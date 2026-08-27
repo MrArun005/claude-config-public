@@ -1,0 +1,204 @@
+# Question catalogue for bank seeding (BUILD-PLAN §5.3, P2).
+#
+# "Scrape the question set from ~20 real postings across your target platforms,
+#  answer all of them in one sitting (~45 min), commit."
+#
+# This is that question set, grouped so it can be answered in one pass. No
+# values live here — this file is tracked and must stay free of personal data.
+# Answers land in state/answers.yaml, which is gitignored.
+#
+#   python -m state.seed                      # interactive, one pass
+#   python -m state.seed --from-json a.json    # bulk load {key: value}
+#   python -m state.seed --missing              # only what the bank still lacks
+#
+# Fields:
+#   feeds     the answer-bank key this populates (what field-aliases.yaml maps to)
+#   kind      text | int | bool | select | date | template | money | decline
+#   options   closed vocabulary for select/bool, offered verbatim
+#   frequency always | often | sometimes  — how often real ATSs ask it
+#   note      why it matters, or the trap in it
+
+groups:
+
+  # ---------------------------------------------------------------- contact
+  - name: Contact and identity
+    questions:
+      - { id: 1,  feeds: full_name,    kind: text,  frequency: always,
+          q: "Full legal name, exactly as it should appear on an application" ,
+          note: "first_name/last_name are split from this mechanically" }
+      - { id: 2,  feeds: email,        kind: text,  frequency: always,
+          q: "Primary email for applications" ,
+          note: "must be the mailbox identity/otp.py polls, or OTP login breaks" }
+      - { id: 3,  feeds: phone,        kind: text,  frequency: always,
+          q: "Phone number with country code" }
+      - { id: 4,  feeds: location,     kind: text,  frequency: always,
+          q: "City and country you are based in" }
+      - { id: 5,  feeds: address_line, kind: text,  frequency: sometimes,
+          q: "Street address (Workday and some enterprise ATSs require it)" }
+      - { id: 6,  feeds: postal_code,  kind: text,  frequency: sometimes,
+          q: "Postal / PIN code" }
+      - { id: 7,  feeds: linkedin,     kind: text,  frequency: always,
+          q: "LinkedIn profile URL" }
+      - { id: 8,  feeds: github,       kind: text,  frequency: often,
+          q: "GitHub profile URL" }
+      - { id: 9,  feeds: portfolio,    kind: text,  frequency: often,
+          q: "Portfolio / personal site URL" }
+
+  # ---------------------------------------------------- work authorisation
+  - name: Work authorisation
+    questions:
+      - { id: 10, feeds: nationality,          kind: text, frequency: often,
+          q: "Citizenship / nationality" }
+      - { id: 11, feeds: work_authorisation,   kind: text, frequency: always,
+          q: "Work authorisation status, phrased for a form" }
+      - { id: 12, feeds: requires_sponsorship, kind: bool, frequency: always,
+          options: ["No", "Yes"],
+          q: "Do you now or will you in future require visa sponsorship?" ,
+          note: "asked by nearly every US/EU posting; a wrong answer here is fatal" }
+      - { id: 13, feeds: authorised_us,        kind: bool, frequency: often,
+          options: ["No", "Yes"],
+          q: "Are you legally authorised to work in the United States?" }
+      - { id: 14, feeds: authorised_uk_eu,     kind: bool, frequency: often,
+          options: ["No", "Yes"],
+          q: "Are you legally authorised to work in the UK or EU?" }
+      - { id: 15, feeds: security_clearance,   kind: bool, frequency: sometimes,
+          options: ["No", "Yes"],
+          q: "Do you hold any government security clearance?" }
+
+  # ------------------------------------------------------------- logistics
+  - name: Availability and logistics
+    questions:
+      - { id: 16, feeds: notice_period,     kind: text, frequency: always,
+          q: "Notice period at your current employer" ,
+          note: "answers.yaml says '30 days'; memory of JOB-052 says 90 days — resolve this" }
+      - { id: 17, feeds: earliest_start,    kind: text, frequency: often,
+          q: "Earliest date you could start" }
+      - { id: 18, feeds: willing_relocate,  kind: bool, frequency: often,
+          options: ["No", "Yes", "For the right role"],
+          q: "Are you willing to relocate?" }
+      - { id: 19, feeds: remote_preference, kind: text, frequency: often,
+          q: "Remote / hybrid / onsite preference" }
+      - { id: 20, feeds: timezone,          kind: text, frequency: often,
+          q: "Your timezone, and the overlap hours you can commit to" ,
+          note: "Proxify and most remote-first boards ask this explicitly" }
+      - { id: 21, feeds: hours_per_week,    kind: text, frequency: sometimes,
+          q: "Hours per week available (contract / part-time roles)" }
+      - { id: 22, feeds: employment_type,   kind: text, frequency: often,
+          q: "Full-time, contract, or either?" }
+
+  # ---------------------------------------------------------- compensation
+  - name: Compensation
+    questions:
+      - { id: 23, feeds: current_ctc,         kind: money, frequency: often,
+          q: "Current annual compensation" ,
+          note: "some ATSs make this mandatory; India postings almost always do" }
+      - { id: 24, feeds: salary_expectation,  kind: money, frequency: always,
+          q: "Expected annual compensation" }
+      - { id: 25, feeds: hourly_rate,         kind: money, frequency: sometimes,
+          q: "Expected hourly rate (Proxify and contract platforms)" }
+      - { id: 26, feeds: salary_currency,     kind: text, frequency: sometimes,
+          q: "Preferred currency for compensation figures" }
+
+  # ------------------------------------------------------------ experience
+  - name: Years of experience
+    note: "Every ATS phrases these as its own question; each needs its own answer."
+    questions:
+      - { id: 27, feeds: years_experience, kind: int, frequency: always,
+          q: "Total years of professional software experience" }
+      - { id: 28, feeds: years_react,      kind: int, frequency: often,
+          q: "Years with React" }
+      - { id: 29, feeds: years_nextjs,     kind: int, frequency: often,
+          q: "Years with Next.js" }
+      - { id: 30, feeds: years_javascript, kind: int, frequency: often,
+          q: "Years with JavaScript" }
+      - { id: 31, feeds: years_typescript, kind: int, frequency: often,
+          q: "Years with TypeScript" }
+      - { id: 32, feeds: years_nodejs,     kind: int, frequency: often,
+          q: "Years with Node.js" }
+      - { id: 33, feeds: years_python,     kind: int, frequency: sometimes,
+          q: "Years with Python" }
+      - { id: 34, feeds: years_cloud,      kind: int, frequency: sometimes,
+          q: "Years with AWS / GCP / Azure" }
+      - { id: 35, feeds: years_leadership, kind: int, frequency: sometimes,
+          q: "Years leading or mentoring engineers" }
+      - { id: 36, feeds: years_testing,    kind: int, frequency: sometimes,
+          q: "Years building automated test suites" }
+
+  # -------------------------------------------------------------- history
+  - name: Employment history
+    questions:
+      - { id: 37, feeds: current_company,    kind: text, frequency: always,
+          q: "Current employer, as it should appear on a form" }
+      - { id: 38, feeds: current_title,      kind: text, frequency: always,
+          q: "Current job title" }
+      - { id: 39, feeds: current_start_date, kind: date, frequency: often,
+          q: "Start date at your current employer (YYYY-MM)" }
+      - { id: 40, feeds: reason_for_leaving, kind: text, frequency: sometimes,
+          q: "Reason for looking to move — one sentence, reusable" }
+      - { id: 41, feeds: worked_here_before, kind: bool, frequency: often,
+          options: ["No", "Yes"],
+          q: "Have you previously been employed by this company? (default answer)" }
+      - { id: 42, feeds: related_to_employee, kind: bool, frequency: sometimes,
+          options: ["No", "Yes"],
+          q: "Are you related to a current employee? (default answer)" }
+
+  # ------------------------------------------------------------ education
+  - name: Education
+    questions:
+      - { id: 43, feeds: highest_degree,   kind: text, frequency: always,
+          q: "Highest degree earned" }
+      - { id: 44, feeds: university,       kind: text, frequency: always,
+          q: "University / institution" }
+      - { id: 45, feeds: graduation_year,  kind: int,  frequency: always,
+          q: "Year of graduation" }
+      - { id: 46, feeds: grade,            kind: text, frequency: sometimes,
+          q: "GPA or percentage, if you are willing to state it" }
+
+  # ------------------------------------------------------------ documents
+  - name: Documents
+    questions:
+      - { id: 47, feeds: resume_path,       kind: text, frequency: always,
+          q: "Absolute path to the résumé PDF to upload" ,
+          note: "required by any form with a file input; a missing path parks the run" }
+      - { id: 48, feeds: cover_letter_path, kind: text, frequency: sometimes,
+          q: "Absolute path to a generic cover-letter PDF, if you keep one" }
+      - { id: 49, feeds: english_level,     kind: text, frequency: often,
+          q: "English proficiency, as a form would phrase it" }
+
+  # ------------------------------------------------------------ screening
+  - name: Screening and behavioural
+    questions:
+      - { id: 50, feeds: why_this_company,   kind: template, frequency: often,
+          q: "Approve the 'why this company' template (you write the prose)" ,
+          note: "state/templates/why.j2 — refused until you replace the scaffold" }
+      - { id: 51, feeds: notable_achievement, kind: text, frequency: sometimes,
+          q: "One defensible achievement with a number in it" }
+      - { id: 52, feeds: referral_source,    kind: text, frequency: often,
+          q: "'How did you hear about us?' — your default answer" }
+      - { id: 53, feeds: assessment_willing, kind: bool, frequency: sometimes,
+          options: ["Yes", "No"],
+          q: "Willing to complete a take-home assessment?" ,
+          note: "feeds §5.5 eligibility routing, not a form field" }
+
+  # ---------------------------------------------------------- legal / EEO
+  - name: Legal and EEO
+    note: >-
+      EEO questions are voluntary by law in the US. "Decline to self-identify"
+      is a valid, sourced answer — it is not a gap, and it is what these default
+      to unless you say otherwise.
+    questions:
+      - { id: 54, feeds: consent_privacy,    kind: bool, frequency: always,
+          options: ["Yes", "No"],
+          q: "Consent to the employer's privacy / data-processing notice" ,
+          note: "never inferred by the adapter; must be explicitly sourced" }
+      - { id: 55, feeds: background_check,   kind: bool, frequency: often,
+          options: ["Yes", "No"],
+          q: "Consent to a background check" }
+      - { id: 56, feeds: gender,             kind: text, frequency: often,
+          q: "Gender (EEO) — or 'Decline to self-identify'" }
+      - { id: 57, feeds: ethnicity,          kind: text, frequency: often,
+          q: "Race / ethnicity (US EEO) — or 'Decline to self-identify'" }
+      - { id: 58, feeds: veteran_status,     kind: text, frequency: often,
+          q: "Veteran status (US EEO) — or 'Decline to self-identify'" }
+      - { id: 59, feeds: disability_status,  kind: text, frequency: often,
+          q: "Disability status (US EEO) — or 'Decline to self-identify'" }

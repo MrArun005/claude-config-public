@@ -27,11 +27,12 @@ DERIVED: dict[str, tuple[str, str]] = {
 
 
 @lru_cache(maxsize=1)
-def _table() -> tuple[dict[str, str], tuple[tuple[re.Pattern[str], str], ...]]:
+def _table() -> tuple[dict[str, str],
+                      tuple[tuple[re.Pattern[str], str, str | None], ...]]:
     raw = yaml.safe_load(TABLE.read_text()) or {}
     by_name = {k.lower(): v for k, v in (raw.get("by_name") or {}).items()}
     by_label = tuple(
-        (re.compile(rule["match"], re.I), rule["key"])
+        (re.compile(rule["match"], re.I), rule["key"], rule.get("type"))
         for rule in (raw.get("by_label") or [])
     )
     return by_name, by_label
@@ -47,7 +48,12 @@ def key_for(field: FormField) -> str | None:
 
     label = normalise_label(field.label)
     if label:
-        for pattern, key in by_label:
+        for pattern, key, want_type in by_label:
+            # An optional `type:` constraint lets one label mean two things:
+            # "Cover letter" on a file input is a document, on a textarea it is
+            # prose. Without this the first rule would swallow both.
+            if want_type and not re.fullmatch(want_type, field.type, re.I):
+                continue
             if pattern.search(label):
                 return key
     return None
