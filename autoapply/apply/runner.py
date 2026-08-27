@@ -32,6 +32,8 @@ import time
 from pathlib import Path
 from typing import Protocol
 
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+
 import paths
 from identity import browser, session
 from state import ledger
@@ -41,6 +43,9 @@ from state.checkpoint import Checkpoint
 from .adapter import UnknownField, cache_resolution, dispatch
 from .adapters.generic_form import GenericFormAdapter
 from .fields import platform_of
+
+# A submit click waits this long for a navigation, then proceeds regardless.
+SUBMIT_TIMEOUT_MS = 15_000
 
 # A field cannot bounce through rung 2 forever; each pass must make progress.
 MAX_RESOLUTION_PASSES = 8
@@ -206,14 +211,32 @@ async def run(job_url: str, *, company: str | None = None, role: str | None = No
                          ["gate passed but no submit control found on the page"],
                          started, filled=len(res.filled))
 
-        await submit.click()
-        await page.wait_for_load_state("networkidle")
+        # Bounded waits. `click()` auto-waits for a scheduled navigation, and
+        # plenty of ATSs submit over XHR and never schedule one — an unbounded
+        # wait there hangs the run rather than finishing it.
+        was_at = page.url
+        try:
+            await submit.click(timeout=SUBMIT_TIMEOUT_MS)
+        except PlaywrightTimeoutError:
+            pass
+        try:
+            await page.wait_for_load_state("networkidle",
+                                           timeout=SUBMIT_TIMEOUT_MS)
+        except PlaywrightTimeoutError:
+            pass
 
-        ledger.set_status(con, app_id, "submitted", rung=rung,
-                          human_secs=0)
-        ckpt.done()
+        # There is no generic ATS success signal to verify, so say which of the
+        # two observable things happened rather than asserting success.
+        navigated = page.url != was_at
+        gone = not await submit.count()
+        confirmed = navigated or gone
+
+        ledger.set_status(con, app_id, "submitted", rung=rung, human_secs=0)
+        if confirmed:
+            ckpt.done()
         return {"status": "submitted", "app_id": app_id, "rung": rung,
                 "filled": len(res.filled), "landed_on": page.url,
+                "confirmed": confirmed,
                 "elapsed_s": round(time.time() - started, 1)}
 
     except Exception as exc:  # rung 4 — never a blind retry
@@ -255,7 +278,8 @@ def main(argv: list[str] | None = None) -> int:
                           headless=not args.headed, dry_run=args.dry_run))
 
     print(f"status : {out['status']}")
-    for key in ("app_id", "rung", "filled", "landed_on", "reason", "error", "elapsed_s"):
+    for key in ("app_id", "rung", "filled", "confirmed", "landed_on", "reason",
+                "error", "elapsed_s"):
         if key in out:
             print(f"{key:7}: {out[key]}")
     for reason in out.get("reasons", []):

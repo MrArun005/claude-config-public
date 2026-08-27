@@ -70,7 +70,7 @@ groups:
     questions:
       - { id: 16, feeds: notice_period,     kind: text, frequency: always,
           q: "Notice period at your current employer" ,
-          note: "answers.yaml says '30 days'; memory of JOB-052 says 90 days — resolve this" }
+          note: "contractual figure, plus any negotiated flexibility — forms take it verbatim" }
       - { id: 17, feeds: earliest_start,    kind: text, frequency: often,
           q: "Earliest date you could start" }
       - { id: 18, feeds: willing_relocate,  kind: bool, frequency: often,
@@ -170,7 +170,7 @@ groups:
     questions:
       - { id: 50, feeds: why_this_company,   kind: template, frequency: often,
           q: "Approve the 'why this company' template (you write the prose)" ,
-          note: "state/templates/why.j2 — refused until you replace the scaffold" }
+          note: "copy templates/why.j2.example to why.j2; the renderer refuses the scaffold" }
       - { id: 51, feeds: notable_achievement, kind: text, frequency: sometimes,
           q: "One defensible achievement with a number in it" }
       - { id: 52, feeds: referral_source,    kind: text, frequency: often,

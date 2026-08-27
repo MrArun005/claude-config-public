@@ -8,3 +8,5 @@ applications/
 state/answers.yaml
 field-resolutions.json
 p0_results.txt
+# Personalised cover prose (why.j2.example is the tracked scaffold).
+state/templates/why.j2

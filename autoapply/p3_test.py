@@ -82,7 +82,10 @@ class _Quiet(http.server.SimpleHTTPRequestHandler):
 
 def serve(directory: Path):
     handler = functools.partial(_Quiet, directory=str(directory))
-    httpd = socketserver.TCPServer(("127.0.0.1", 0), handler)
+    # Threading matters: a single-threaded server stalls when the browser holds
+    # a keep-alive connection open and then submits the form.
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    httpd.daemon_threads = True
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd, f"http://127.0.0.1:{httpd.server_address[1]}"
 
@@ -118,8 +121,13 @@ def write_bank(text: str, name: str) -> AnswerBank:
 
 def reset_state() -> None:
     """Fresh ledger/checkpoints/queue between scenarios that must not share."""
+    # chrome-profile included deliberately: reusing one persistent profile dir
+    # across a dozen launch_persistent_context calls eventually wedges Chrome,
+    # and the run then hangs on a click instead of failing. Resetting state has
+    # to mean the browser too, not just our own files.
     for target in ("ledger.db", "checkpoints", "review-queue.jsonl",
-                   "field-resolutions.json", "chrome-profile.lock"):
+                   "field-resolutions.json", "chrome-profile.lock",
+                   "chrome-profile"):
         p = STATE_HOME / target
         if p.is_dir():
             shutil.rmtree(p)
@@ -274,6 +282,22 @@ async def main() -> int:
 
     finally:
         httpd.shutdown()
+
+    # 8b ------------------------------------------------------------
+    print("\n[8b] select_as: one answer for a free-text field AND a dropdown")
+    # Own process: each runner.run() launches a persistent Chromium, and this
+    # container exhausts past roughly a dozen launches in one process. The
+    # symptom moved (a hanging click, then a timing-out goto), which is how
+    # resource exhaustion presents — so give this scenario a fresh budget
+    # rather than let it test the limit instead of the feature.
+    import subprocess
+    proc = subprocess.run([sys.executable, "tests/test_select_as.py"],
+                          capture_output=True, text=True, timeout=180)
+    for line in proc.stdout.splitlines():
+        if line.strip().startswith(("PASS", "FAIL", "[")):
+            print(f"    {line.strip()}")
+    check("select_as subprocess passed", proc.returncode == 0,
+          (proc.stdout + proc.stderr).strip()[-200:])
 
     # 9 -------------------------------------------------------------
     print("\n[9] alias-table ordering (pure lookup, no browser)")

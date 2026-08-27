@@ -16,7 +16,10 @@ full_name:            { value: "TODO First Last",          sourced: true }
 email:                { value: "TODO@example.com",         sourced: true }
 phone:                { value: "+00-TODO",                 sourced: true }
 location:             { value: "TODO City, Country",       sourced: true }
-notice_period:        { value: "TODO days",                sourced: true }
+# `select_as` gives a canonical alternate for dropdowns and radio groups: the
+# free-text answer may carry detail no <option> contains. Both are your words,
+# so nothing is approximated — the control just gets the one on offer.
+notice_period:        { value: "TODO days", select_as: "TODO days", sourced: true }
 work_authorisation:   { value: "TODO — citizen",           sourced: true }
 requires_sponsorship: { value: false,                      sourced: true }
 years_experience:     { value: 0,                          sourced: true }

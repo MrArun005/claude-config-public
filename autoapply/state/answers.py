@@ -95,9 +95,26 @@ class AnswerBank:
             return None
         return (self.path.parent / entry["template"]).resolve()
 
+    def select_alt(self, question_key: str):
+        """A canonical alternate for closed-vocabulary controls.
+
+        "90 days (negotiable to 60)" is the right answer to a free-text notice
+        question and matches no dropdown option, so a `select_as: "90 days"`
+        lets one entry serve both without ever approximating: both strings are
+        yours, and the dropdown gets the one that is actually on offer.
+        """
+        return (self.data.get(question_key) or {}).get("select_as")
+
     def write_back(self, question_key: str, value) -> None:
-        """Every review-queue answer feeds the bank so it never parks again."""
-        self.data[question_key] = {"value": value, "sourced": True}
+        """Every review-queue answer feeds the bank so it never parks again.
+
+        Preserves sidecar keys such as `select_as`: re-answering a question
+        should not silently discard the dropdown alternate set alongside it.
+        """
+        entry = dict(self.data.get(question_key) or {})
+        entry.update({"value": value, "sourced": True})
+        entry.pop("policy", None)      # an explicit value supersedes TEMPLATE
+        self.data[question_key] = entry
         self.path.write_text(yaml.safe_dump(self.data, allow_unicode=True, sort_keys=True))
 
 

@@ -27,7 +27,8 @@ state/
   review.py              drain the review queue back into the bank
   answers.example.yaml   copy to answers.yaml and fill in
   field-aliases.yaml     label/name -> answer key, first match wins
-  templates/why.j2       "why this company" — a scaffold you must rewrite
+  templates/why.j2.example   "why this company" scaffold (tracked)
+  templates/why.j2           your real version (gitignored)
 p0_test.py               P0 exit criterion (needs your Gmail app password)
 p3_test.py               P3 exit criterion (real Chromium, local fixtures)
 ```
@@ -38,7 +39,11 @@ p3_test.py               P3 exit criterion (real Chromium, local fixtures)
 pip install -r requirements.txt && playwright install chromium
 mkdir -p ~/.autoapply && chmod 700 ~/.autoapply
 
-cp state/answers.example.yaml state/answers.yaml   # then fill it in
+cp state/answers.example.yaml state/answers.yaml         # then fill it in
+cp state/templates/why.j2.example state/templates/why.j2  # then write the prose
+
+python -m state.seed            # walk the 59-question catalogue in one pass
+python -m state.seed --coverage # what is still unanswered
 ```
 
 For platforms that need a login (P0/P1):
@@ -112,7 +117,7 @@ records the URL it landed on and you confirm.
 ## Tests
 
 ```bash
-python p3_test.py    # 32 checks, real Chromium against local fixture forms
+python p3_test.py    # 37 checks (+4 in a subprocess), real Chromium against local fixture forms
 python p0_test.py    # OTP retrieval; needs your Gmail app password
 ```
 
@@ -125,4 +130,5 @@ empty) form.
 ## Privacy
 
 `state/answers.yaml` is gitignored and holds personal data — never commit it.
-So are `chrome-profile/` (live session cookies) and `secrets.env`.
+So are `state/templates/why.j2` (personal prose), `chrome-profile/` (live session
+cookies) and `secrets.env`. The tracked `*.example` files carry no personal data.

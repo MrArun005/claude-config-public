@@ -168,7 +168,8 @@ class GenericFormAdapter:
                 continue
 
             try:
-                await self._fill(page, field, answer.value)
+                entered = await self._fill(page, field, answer.value,
+                                           alt=self.bank.select_alt(answer.name))
             except _Unfillable as exc:
                 result.unresolved.append(f"{field.describe()}: {exc}")
                 if field.required:
@@ -179,7 +180,9 @@ class GenericFormAdapter:
             result.filled[label] = answer
             # Recorded after EVERY field, not every page — the crash-proofing
             # contract in state/checkpoint.py.
-            ckpt.record(sig, {"label": label, "key": key, "value": answer.value,
+            # `entered` not answer.value: for a dropdown these differ, and the
+            # replay on resume must re-enter what the control actually accepted.
+            ckpt.record(sig, {"label": label, "key": key, "value": entered,
                               "provenance": answer.provenance},
                         action=f"fill:{key}")
 
@@ -222,7 +225,8 @@ class GenericFormAdapter:
         return found
 
     # --- the actual typing ----------------------------------------------
-    async def _fill(self, page, field: FormField, value) -> None:
+    async def _fill(self, page, field: FormField, value, alt=None):
+        """Enter `value` into the control. Returns what was actually entered."""
         sel = field.selector
         kind = field.type
 
@@ -231,7 +235,7 @@ class GenericFormAdapter:
             if not path.is_file():
                 raise _Unfillable(f"file not found: {path}")
             await page.set_input_files(sel, str(path))
-            return
+            return str(path)
 
         if kind == "checkbox":
             if not isinstance(value, bool):
@@ -244,16 +248,18 @@ class GenericFormAdapter:
                 await page.check(sel)
             else:
                 await page.uncheck(sel)
-            return
+            return value
 
         if kind.startswith("select"):
             opt = _match_option(value, field.options or ())
+            if opt is None and alt is not None:
+                opt = _match_option(alt, field.options or ())
             if opt is None:
                 raise _Unfillable(
                     f"no option matches {value!r} (options: "
                     f"{', '.join(o for o in (field.options or ()) if o)})")
             await page.select_option(sel, label=opt)
-            return
+            return opt
 
         if kind == "radio":
             group = page.locator(f'input[type=radio][name="{field.name}"]')
@@ -263,14 +269,17 @@ class GenericFormAdapter:
                 item = group.nth(i)
                 labels.append(await item.get_attribute("value") or "")
             opt = _match_option(value, tuple(labels))
+            if opt is None and alt is not None:
+                opt = _match_option(alt, tuple(labels))
             if opt is None:
                 raise _Unfillable(f"no radio option matches {value!r}")
             await group.nth(labels.index(opt)).check()
-            return
+            return opt
 
         if kind in TEXT_TYPES or field.tag == "textarea":
-            await page.fill(sel, _as_text(value))
-            return
+            text = _as_text(value)
+            await page.fill(sel, text)
+            return text
 
         raise _Unfillable(f"unsupported control type {kind!r}")
 
