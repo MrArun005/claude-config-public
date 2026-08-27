@@ -86,6 +86,20 @@ def _match_option(value, options: tuple[str, ...]) -> str | None:
     return hits[0] if len(hits) == 1 else None          # ambiguous -> None
 
 
+def _alternates(alt) -> list:
+    """`select_as` may be a single value or an ordered list of fallbacks.
+
+    Order is the author's preference, most accurate first. Every entry is a
+    value the author explicitly pre-approved for this question — the code still
+    never invents one.
+    """
+    if alt is None:
+        return []
+    if isinstance(alt, (list, tuple)):
+        return [a for a in alt if a is not None]
+    return [alt]
+
+
 def _as_text(value) -> str:
     if isinstance(value, bool):
         return "Yes" if value else "No"
@@ -251,9 +265,11 @@ class GenericFormAdapter:
             return value
 
         if kind.startswith("select"):
-            opt = _match_option(value, field.options or ())
-            if opt is None and alt is not None:
-                opt = _match_option(alt, field.options or ())
+            opt = None
+            for candidate in (value, *_alternates(alt)):
+                opt = _match_option(candidate, field.options or ())
+                if opt is not None:
+                    break
             if opt is None:
                 raise _Unfillable(
                     f"no option matches {value!r} (options: "
@@ -268,9 +284,11 @@ class GenericFormAdapter:
             for i in range(count):
                 item = group.nth(i)
                 labels.append(await item.get_attribute("value") or "")
-            opt = _match_option(value, tuple(labels))
-            if opt is None and alt is not None:
-                opt = _match_option(alt, tuple(labels))
+            opt = None
+            for candidate in (value, *_alternates(alt)):
+                opt = _match_option(candidate, tuple(labels))
+                if opt is not None:
+                    break
             if opt is None:
                 raise _Unfillable(f"no radio option matches {value!r}")
             await group.nth(labels.index(opt)).check()
@@ -282,7 +300,7 @@ class GenericFormAdapter:
             # digits are never *extracted* from prose — that would be the
             # system inventing "14" from a sentence, which is exactly the
             # inference the submit gate exists to prevent. You write both.
-            for candidate in (value, alt):
+            for candidate in (value, *_alternates(alt)):
                 if candidate is None:
                     continue
                 text = _as_text(candidate).strip()

@@ -19,7 +19,13 @@ location:             { value: "TODO City, Country",       sourced: true }
 # `select_as` gives a canonical alternate for dropdowns and radio groups: the
 # free-text answer may carry detail no <option> contains. Both are your words,
 # so nothing is approximated — the control just gets the one on offer.
-notice_period:        { value: "TODO days", select_as: "TODO days", sourced: true }
+# `select_as` may also be an ORDERED LIST of fallbacks, most accurate first —
+# useful when dropdowns differ between employers (many offer only 30/90 days).
+# Every entry is a value you have pre-approved; the code never invents one.
+notice_period:
+  value: "TODO days"
+  select_as: ["TODO days", "TODO fallback"]
+  sourced: true
 work_authorisation:   { value: "TODO — citizen",           sourced: true }
 requires_sponsorship: { value: false,                      sourced: true }
 years_experience:     { value: 0,                          sourced: true }

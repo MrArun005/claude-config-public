@@ -132,10 +132,30 @@ async def main() -> int:
               out["status"] == "parked", str(out)[:140])
         check("tells you to add a numeric select_as",
               "not a number" in reasons, reasons[:140])
+        print("[e] ordered fallbacks: dropdown offers 30/90, answer is 60")
+        _reset()
+        ordered = _bank(
+            'notice_period:\n  value: "60 days"\n'
+            '  select_as: ["60 days", "90 days", "30 days"]\n  sourced: true\n',
+            "ordered.yaml")
+        out = await runner.run(f"{base}/notice_30_90.html", bank=ordered)
+        check("submitted via the first available fallback",
+              out["status"] == "submitted", str(out)[:140])
+        check("picked 90 days, not 30",
+              "notice=90+days" in out.get("landed_on", ""),
+              out.get("landed_on", "")[-50:])
+
+        print("[f] ordered fallbacks: dropdown offers only 30")
+        _reset()
+        out = await runner.run(f"{base}/notice_30_only.html", bank=ordered)
+        check("falls through to the last approved option",
+              out["status"] == "submitted" and
+              "notice=30+days" in out.get("landed_on", ""),
+              out.get("landed_on", "")[-50:])
     finally:
         httpd.shutdown()
 
-    total = 8
+    total = 11
     print(f"select_as: {total - len(failures)}/{total} checks passed")
     return 1 if failures else 0
 

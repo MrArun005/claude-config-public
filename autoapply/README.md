@@ -119,7 +119,7 @@ records the URL it landed on and you confirm.
 ## Tests
 
 ```bash
-python p3_test.py    # 37 checks (+8 in a subprocess), real Chromium against local fixture forms
+python p3_test.py    # 37 checks (+11 in a subprocess), real Chromium against local fixture forms
 python p0_test.py    # OTP retrieval; needs your Gmail app password
 ```
 
