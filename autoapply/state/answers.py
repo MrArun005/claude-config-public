@@ -131,8 +131,11 @@ def gate_reasons(
     """Why this application may NOT be auto-submitted. Empty list == cleared."""
     reasons: list[str] = []
 
-    for name in unresolved:
-        reasons.append(f"unresolved field: {name}")
+    # Deliberately NOT blocking on `unresolved`: leaving an OPTIONAL question
+    # blank is an ordinary, honest submission. The rule is never to invent an
+    # answer, not to answer everything. Required fields are enforced below, and
+    # unresolved ones are still reported so the bank can be improved.
+    _ = unresolved
     for name in required_unfilled:
         reasons.append(f"required field not filled: {name}")
 

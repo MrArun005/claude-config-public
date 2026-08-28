@@ -165,6 +165,16 @@ class GenericFormAdapter:
             key = resolutions.get(f"{platform}::{sig}") or aliases.key_for(field)
 
             if key is None:
+                if not field.required:
+                    # An unmapped OPTIONAL question is not worth halting the
+                    # whole application for -- leaving it blank is an honest
+                    # submission. Before this, one optional question the table
+                    # did not recognise aborted the run at rung 2 with zero
+                    # fields filled, which is how a live GitLab posting failed
+                    # on an accessibility-adjustments field.
+                    result.unresolved.append(
+                        f"{field.describe()}: no mapping (optional, left blank)")
+                    continue
                 raise UnknownField(sig, field.label or field.name or field.selector)
 
             if key == SKIP_KEY:

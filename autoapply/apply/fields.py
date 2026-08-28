@@ -139,12 +139,21 @@ _DISCOVER_JS = """
         // Count only VISIBLE controls: React-Select pairs its text input with a
         // hidden one, so counting everything sees 2 and bails out one level
         // below the element that actually carries the question.
+        // React-Select renders TWO visible inputs (the combobox plus its
+        // shadow field), so the wrapper carrying the question sits one level
+        // above a node that already owns 2 controls. Allow up to 2, and stop
+        // as soon as an ancestor owns more than one <label> -- that ancestor
+        // spans several questions, and taking its first label would answer
+        // this control with the neighbouring question's label. Verified on a
+        // live Greenhouse form: the phone fieldset owns 4 controls and 2
+        // labels, and must not be used.
         const owned = node.querySelectorAll(
           'input:not([type=hidden]),select,textarea').length;
-        if (owned !== 1) break;
-        const cand = node.querySelector('label,legend,[class*="label"],[class*="Label"]');
-        if (cand && cand.innerText && cand.innerText.trim()) {
-          lbl = cand.innerText;
+        const labels = node.querySelectorAll('label');
+        if (owned > 2 || labels.length > 1) break;
+        if (labels.length === 1 && labels[0].innerText
+            && labels[0].innerText.trim()) {
+          lbl = labels[0].innerText;
           break;
         }
       }
@@ -167,8 +176,15 @@ _DISCOVER_JS = """
 
 
 async def discover(page) -> list[FormField]:
-    """Every fillable control on the page, in document order."""
-    return [
+    """Every fillable control on the page, in document order.
+
+    Consecutive controls with an identical signature collapse to one. A
+    React-Select widget renders two visible inputs for a single question, so
+    without this a form reports "Country" twice, fills it twice, and counts it
+    twice towards the gate. Only CONSECUTIVE duplicates are dropped, so a form
+    that genuinely asks a same-looking question in two places keeps both.
+    """
+    return _dedupe([
         FormField(
             tag=r["tag"], type=r["type"], name=r["name"], id=r["id"],
             label=r["label"], required=r["required"],
@@ -176,7 +192,16 @@ async def discover(page) -> list[FormField]:
             idx=r["idx"],
         )
         for r in await page.evaluate(_DISCOVER_JS, IDX_ATTR)
-    ]
+    ])
+
+
+def _dedupe(fields: list[FormField]) -> list[FormField]:
+    out: list[FormField] = []
+    for field in fields:
+        if out and out[-1].signature == field.signature:
+            continue
+        out.append(field)
+    return out
 
 
 async def has_form(page) -> bool:
