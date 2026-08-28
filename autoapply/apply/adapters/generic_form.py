@@ -152,6 +152,13 @@ class GenericFormAdapter:
                     result.skipped.append(field.describe())
                     continue
                 value = done.get("value")
+                if value is None:
+                    # A grouped option that was NOT the chosen answer: recorded
+                    # so the resume knows it was considered, but there is
+                    # nothing to re-enter. Replaying it as a filled field put a
+                    # None into the gate, which then refused the whole
+                    # application for a "placeholder" value.
+                    continue
                 label = done.get("label") or sig
                 try:
                     await self._fill(page, field, value)

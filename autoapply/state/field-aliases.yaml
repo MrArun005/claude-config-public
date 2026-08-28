@@ -155,6 +155,12 @@ by_label:
   # ------------------------------------------------------- legal / consent
   # Background check BEFORE the generic consent rule.
   - { match: 'background (check|screening)|criminal',        key: background_check }
+  # A data-processing consent checkbox states the whole clause in its own
+  # label, routinely 150+ characters, so long_ok. Still an explicit
+  # sourced answer -- never inferred.
+  - { match: 'by checking this box|store and process my data|
+             agree to allow .* to store|process my (personal )?data',
+      key: consent_privacy, long_ok: true }
   - { match: 'privacy|terms|consent|gdpr|data processing|policy',
       key: consent_privacy }
 

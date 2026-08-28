@@ -249,12 +249,19 @@ async def _run_with_ledger(con, job_url, app_id, platform, company, role,
         gone = not await submit.count()
         confirmed = navigated or gone
 
+        # Evidence, because "did that actually send?" is otherwise unanswerable.
+        # The first real submission this tool made came back confirmed=False on
+        # an unchanged URL, and with nothing captured there was no way to tell a
+        # successful XHR submit from a silent validation failure.
+        evidence = await _capture(page, app_id, confirmed)
+
         ledger.set_status(con, app_id, "submitted", rung=rung, human_secs=0)
         if confirmed:
             ckpt.done()
         return {"status": "submitted", "app_id": app_id, "rung": rung,
                 "filled": len(res.filled), "landed_on": page.url,
-                "confirmed": confirmed,
+                "confirmed": confirmed, "evidence": evidence["verdict"],
+                "artifacts": evidence["dir"], "page_says": evidence["excerpt"],
                 "elapsed_s": round(time.time() - started, 1)}
 
     except Exception as exc:  # rung 4 — never a blind retry
@@ -267,6 +274,45 @@ async def _run_with_ledger(con, job_url, app_id, platform, company, role,
     finally:
         if pw is not None and ctx is not None:
             await browser.close_context(pw, ctx)
+
+
+SUCCESS_HINTS = ("thank you for applying", "application received",
+                 "application submitted", "we have received",
+                 "thanks for applying", "successfully submitted")
+FAILURE_HINTS = ("please complete", "is required", "required field",
+                 "there was a problem", "please correct", "invalid")
+
+
+async def _capture(page, app_id: str, confirmed: bool) -> dict:
+    """Screenshot + page text after a submit click, and a guess at the outcome.
+
+    Plan §5.6. A click on a form that submits over XHR leaves the URL unchanged,
+    so `confirmed` alone cannot separate success from a silent validation
+    failure. Keeping the evidence makes the question answerable afterwards
+    instead of unanswerable forever.
+    """
+    out = paths.under("applications", app_id)
+    out.mkdir(parents=True, exist_ok=True)
+    verdict, text = "unknown", ""
+    try:
+        await page.screenshot(path=str(out / "post-submit.png"), full_page=True)
+    except Exception:
+        pass
+    try:
+        text = await page.inner_text("body")
+        (out / "post-submit.txt").write_text(text, encoding="utf-8")
+    except Exception:
+        pass
+
+    low = text.lower()
+    if any(h in low for h in SUCCESS_HINTS):
+        verdict = "success text found"
+    elif any(h in low for h in FAILURE_HINTS):
+        verdict = "validation error text found"
+    elif confirmed:
+        verdict = "navigated away"
+    return {"dir": str(out), "verdict": verdict,
+            "excerpt": " ".join(text.split())[:300]}
 
 
 def _park(con, app_id: str, job_url: str, rung: int, reasons: list[str],
@@ -315,7 +361,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if not blocked else 1
 
     print(f"status : {out['status']}")
-    for key in ("app_id", "rung", "filled", "confirmed", "landed_on", "reason",
+    for key in ("app_id", "rung", "filled", "confirmed", "evidence", "artifacts",
+                "page_says", "landed_on", "reason",
                 "error", "elapsed_s"):
         if key in out:
             print(f"{key:7}: {out[key]}")
