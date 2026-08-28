@@ -94,6 +94,8 @@ by_label:
   - { match: 'relocat',                                      key: willing_relocate }
   - { match: 'time ?zone|overlap|working hours overlap',     key: timezone }
   - { match: 'hours per week|weekly (availability|hours)',   key: hours_per_week }
+  - { match: 'b2b or b2c|b2b/b2c|under a b2b',  key: b2b_arrangement,
+      long_ok: true }
   - { match: 'employment type|full-?time or contract|contract or full',
       key: employment_type }
   # Restored: the label rule for a plain "Location" / "City" field. by_name
