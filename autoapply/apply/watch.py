@@ -88,12 +88,16 @@ def age_minutes(job: dict, now):
     return None if dt is None else (now - dt).total_seconds() / 60.0
 
 
-def matches(job: dict, title_re, loc_re) -> bool:
-    return bool(title_re.search(job.get("title", ""))
+def matches(job: dict, title_re, loc_re, drop_re=None) -> bool:
+    title = job.get("title", "")
+    if drop_re is not None and drop_re.search(title):
+        return False
+    return bool(title_re.search(title)
                 and loc_re.search((job.get("location") or {}).get("name", "")))
 
 
-def sweep(boards: list, title_re, loc_re, max_age: float, seen: set):
+def sweep(boards: list, title_re, loc_re, max_age: float, seen: set,
+          drop_re=None):
     """Returns (fresh matching jobs, total scanned, errors)."""
     now = datetime.now(timezone.utc)
     fresh, total, errors = [], 0, []
@@ -112,7 +116,7 @@ def sweep(boards: list, title_re, loc_re, max_age: float, seen: set):
             age = age_minutes(job, now)
             if age is None or age > max_age:
                 continue
-            if not matches(job, title_re, loc_re):
+            if not matches(job, title_re, loc_re, drop_re):
                 continue
             job["_board"], job["_age_min"] = board, age
             fresh.append(job)
@@ -151,14 +155,29 @@ def main(argv: list | None = None) -> int:
         prog="python -m apply.watch",
         description="Watch Greenhouse boards for freshly posted jobs.")
     ap.add_argument("--boards", default="gitlab,canonical,sportygroup,turing,okx")
+    # "Senior Software Engineer" is the commonest title for this job, and the
+    # old frontend-only default excluded it -- 12 matches instead of 286 across
+    # the same ten boards. Breadth here, precision via --exclude.
     ap.add_argument("--title",
-                    default=r"front[- ]?end|react|next\.?js|full[- ]?stack|web engineer")
-    ap.add_argument("--location", default=r"india|remote|worldwide|anywhere|global")
+                    default=r"software engineer|front[- ]?end|react|next\.?js|"
+                            r"full[- ]?stack|web engineer|\bsde\b|developer")
+    ap.add_argument("--exclude",
+                    default=r"sales|account executive|recruit|marketing|"
+                            r"customer success|professional services|salesforce|"
+                            r"support engineer|solutions? (architect|engineer)|"
+                            r"data engineer|machine learning|\bqa\b|manager|director",
+                    help="regex; titles matching this are dropped first")
+    ap.add_argument("--location",
+                    default=r"india|bangalore|bengaluru|hyderabad|pune|chennai|"
+                            r"remote|worldwide|anywhere|global")
     ap.add_argument("--max-age", type=float, default=60.0,
                     help="only act on jobs younger than this many minutes")
     ap.add_argument("--interval", type=int, default=300,
                     help="seconds between sweeps (default 300)")
     ap.add_argument("--once", action="store_true")
+    ap.add_argument("--newest", type=int, metavar="N",
+                    help="report the N freshest matches regardless of age or "
+                         "whether they have been seen; never acts")
     ap.add_argument("--plan", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--apply", action="store_true", help="SUBMIT to each fresh job")
@@ -169,6 +188,40 @@ def main(argv: list | None = None) -> int:
             else "plan" if args.plan else "report")
     boards = [b.strip() for b in args.boards.split(",") if b.strip()]
     title_re, loc_re = re.compile(args.title, re.I), re.compile(args.location, re.I)
+    drop_re = re.compile(args.exclude, re.I) if args.exclude else None
+
+    if args.newest:
+        # A one-shot "what is newest right now" query. Ignores the seen-set and
+        # the age filter, and deliberately never acts -- this is for looking.
+        now = datetime.now(timezone.utc)
+        found = []
+        for board in boards:
+            try:
+                jobs = fetch(board)
+            except Exception as exc:
+                print(f"  {board}: {type(exc).__name__} - skipped", file=sys.stderr)
+                continue
+            for job in jobs:
+                if not matches(job, title_re, loc_re, drop_re):
+                    continue
+                age = age_minutes(job, now)
+                if age is None:
+                    continue
+                job["_board"], job["_age_min"] = board, age
+                found.append(job)
+        found.sort(key=lambda j: j["_age_min"])
+        print(f"\n{len(found)} matching postings across {len(boards)} board(s); "
+              f"showing the {min(args.newest, len(found))} freshest\n")
+        for job in found[:args.newest]:
+            age = job["_age_min"]
+            when = (f"{age / 60:.1f}h" if age < 2880 else f"{age / 1440:.0f}d")
+            loc = (job.get("location") or {}).get("name", "?")
+            stamp = published(job)
+            ist = stamp.astimezone(IST).strftime("%d %b %H:%M IST") if stamp else "?"
+            print(f"  {when:>6} old  {job.get('title', '?')}  [{job['_board']}]")
+            print(f"              {loc}  |  posted {ist}")
+            print(f"              {job.get('absolute_url', '')}\n")
+        return 0
 
     seen = load_seen()
     first_run = not seen
@@ -182,7 +235,8 @@ def main(argv: list | None = None) -> int:
     try:
         while True:
             t0 = time.time()
-            fresh, total, errors = sweep(boards, title_re, loc_re, args.max_age, seen)
+            fresh, total, errors = sweep(boards, title_re, loc_re, args.max_age,
+                                         seen, drop_re)
             save_seen(seen)
             stamp = datetime.now(IST).strftime("%H:%M:%S")
             print(f"\n[{stamp} IST] scanned {total} | {len(fresh)} fresh match(es)"
