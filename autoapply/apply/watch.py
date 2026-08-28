@@ -39,6 +39,8 @@ from pathlib import Path
 
 import paths
 
+from . import sources
+
 IST = timezone(timedelta(hours=5, minutes=30))
 API = "https://boards-api.greenhouse.io/v1/boards/{board}/jobs"
 UA = "autoapply/1.0 (personal job search)"
@@ -67,20 +69,19 @@ def save_seen(seen: set) -> None:
     p.write_text(json.dumps(sorted(seen)[-20000:]))
 
 
-def fetch(board: str, timeout: int = 25) -> list:
-    req = urllib.request.Request(API.format(board=board), headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8")).get("jobs", [])
+def fetch(board: str) -> list:
+    """Normalised postings for a board written as "platform:slug".
+
+    A bare slug means greenhouse, so older invocations keep working.
+    """
+    platform, _, slug = board.partition(":")
+    if not slug:
+        platform, slug = "greenhouse", platform
+    return sources.fetch(platform, slug)
 
 
 def published(job: dict):
-    raw = job.get("first_published") or job.get("updated_at")
-    if not raw:
-        return None
-    try:
-        return datetime.fromisoformat(raw).astimezone(timezone.utc)
-    except ValueError:
-        return None
+    return job.get("published")
 
 
 def age_minutes(job: dict, now):
@@ -93,7 +94,7 @@ def matches(job: dict, title_re, loc_re, drop_re=None) -> bool:
     if drop_re is not None and drop_re.search(title):
         return False
     return bool(title_re.search(title)
-                and loc_re.search((job.get("location") or {}).get("name", "")))
+                and loc_re.search(job.get("location") or ""))
 
 
 def sweep(boards: list, title_re, loc_re, max_age: float, seen: set,
@@ -109,7 +110,7 @@ def sweep(boards: list, title_re, loc_re, max_age: float, seen: set,
             continue
         total += len(jobs)
         for job in jobs:
-            key = f"{board}:{job.get('id')}"
+            key = f"{board}|{job.get('url', '')}"
             if key in seen:
                 continue
             seen.add(key)
@@ -127,8 +128,8 @@ def sweep(boards: list, title_re, loc_re, max_age: float, seen: set,
 async def act(job: dict, mode: str) -> str:
     from . import runner
     out = await runner.run(
-        job["absolute_url"],
-        company=job.get("company_name") or job["_board"],
+        job["url"],
+        company=job["_board"].partition(":")[2] or job["_board"],
         role=job.get("title"),
         plan_only=(mode == "plan"),
         dry_run=(mode == "dry-run"),
@@ -142,19 +143,22 @@ async def act(job: dict, mode: str) -> str:
 
 
 def describe(job: dict) -> str:
-    loc = (job.get("location") or {}).get("name", "?")
+    loc = job.get("location") or "?"
     when = published(job)
     ist = when.astimezone(IST).strftime("%H:%M IST") if when else "?"
     return (f"{job['_age_min']:6.1f}m  [{job['_board']}] {job.get('title', '?')}\n"
             f"           {loc}  |  posted {ist}\n"
-            f"           {job.get('absolute_url', '')}")
+            f"           {job.get('url', '')}")
 
 
 def main(argv: list | None = None) -> int:
     ap = argparse.ArgumentParser(
         prog="python -m apply.watch",
         description="Watch Greenhouse boards for freshly posted jobs.")
-    ap.add_argument("--boards", default="gitlab,canonical,sportygroup,turing,okx")
+    ap.add_argument("--boards", default="gitlab,canonical,sportygroup,turing,okx",
+                    help='comma-separated "platform:slug" (a bare slug means greenhouse)')
+    ap.add_argument("--boards-file",
+                    help="YAML written by apply.sources --discover -o")
     # "Senior Software Engineer" is the commonest title for this job, and the
     # old frontend-only default excluded it -- 12 matches instead of 286 across
     # the same ten boards. Breadth here, precision via --exclude.
@@ -187,6 +191,11 @@ def main(argv: list | None = None) -> int:
     mode = ("apply" if args.apply else "dry-run" if args.dry_run
             else "plan" if args.plan else "report")
     boards = [b.strip() for b in args.boards.split(",") if b.strip()]
+    if args.boards_file:
+        import yaml
+        with open(args.boards_file, encoding="utf-8") as fh:
+            spec = yaml.safe_load(fh) or {}
+        boards = [f"{b['platform']}:{b['slug']}" for b in spec.get("boards", [])]
     title_re, loc_re = re.compile(args.title, re.I), re.compile(args.location, re.I)
     drop_re = re.compile(args.exclude, re.I) if args.exclude else None
 
@@ -215,12 +224,12 @@ def main(argv: list | None = None) -> int:
         for job in found[:args.newest]:
             age = job["_age_min"]
             when = (f"{age / 60:.1f}h" if age < 2880 else f"{age / 1440:.0f}d")
-            loc = (job.get("location") or {}).get("name", "?")
+            loc = job.get("location") or "?"
             stamp = published(job)
             ist = stamp.astimezone(IST).strftime("%d %b %H:%M IST") if stamp else "?"
             print(f"  {when:>6} old  {job.get('title', '?')}  [{job['_board']}]")
             print(f"              {loc}  |  posted {ist}")
-            print(f"              {job.get('absolute_url', '')}\n")
+            print(f"              {job.get('url', '')}\n")
         return 0
 
     seen = load_seen()
