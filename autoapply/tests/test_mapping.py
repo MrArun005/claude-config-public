@@ -74,6 +74,38 @@ CASES = [
 
     # Must NOT map to anything — proves the table stays honestly incomplete.
     ("What is your favourite Kubernetes operator?", "text", None),
+
+    # --- all of the following came from LIVE Greenhouse forms (Canonical,
+    # GitLab), where the table was confidently wrong or silently blind. ---
+
+    # Greedy education rules typed a university name into unrelated essay
+    # boxes. These must park, not answer.
+    ("How did you perform in mathematics at high school?", "text", None),
+    ("How did you perform in your native language at high school?", "text", None),
+    ("What was your bachelor's university degree result, or expected result "
+     "if you have not yet graduated?", "textarea", None),
+    ("If you selected none of the above in the previous question, please "
+     "describe how your university grading system works and country of "
+     "graduation.", "text", None),
+    ("Please share your rationale or evidence for the high school performance "
+     "selections above.", "textarea", None),
+    # An explicit no-AI declaration must never be auto-answered.
+    ("During this application process I agree to use only my own words.",
+     "text", None),
+    # …while the short, genuine education labels still work.
+    ("School", "text", "university"),
+    ("Degree", "text", "highest_degree"),
+
+    # A labelled Location/Country field with no name attribute matched nothing
+    # at all — by_name covered name="location", real forms label it instead.
+    ("Location (City)", "text", "location"),
+    ("Country", "text", "country"),
+    ("What is your current country of residence?", "text", "country"),
+    # Real GitLab phrasing the original pattern missed.
+    ("Have you previously worked at or consulted for GitLab?", "text",
+     "worked_here_before"),
+    # Greenhouse labels the résumé upload "Attach".
+    ("Attach", "file", "resume_path"),
 ]
 
 

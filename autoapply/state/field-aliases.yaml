@@ -14,6 +14,17 @@
 # one answers the specific question with the wrong value. Every ordering below
 # marked "BEFORE" is load-bearing and covered by p3_test.py's mapping table.
 
+# Checked BEFORE everything else. These labels contain a word the table maps,
+# but the mapped answer would be wrong. Verified against a live Canonical form.
+never_map:
+  - 'high school'                 # "how did you perform … at high school?" is not `university`
+  - 'grading system'              # asks how your grades work, not which year
+  - 'degree result'               # asks for the result, not the institution
+  - 'rationale or evidence'       # an essay prompt
+  - 'describe (your|how)'         # ditto — open-ended, needs a human
+  - 'own words|plagiarism|ai .*generated|generated content'   # AI-use declarations
+  - 'country of graduation'
+
 by_name:            # exact match on the name attribute, digits stripped
   first_name:       first_name
   fname:            first_name
@@ -52,6 +63,7 @@ by_label:
   # File-typed rules first: an upload control asking for a "cover letter" wants
   # a document, not the prose that the screening rule below would supply.
   - { match: 'cover letter',       key: cover_letter_path, type: 'file' }
+  - { match: '^attach|^resume|^cv$', key: resume_path,     type: 'file' }
   - { match: 'r[ée]sum[ée]|\bcv\b|curriculum', key: resume_path }
 
   # --------------------------------------------------- work authorisation
@@ -82,6 +94,12 @@ by_label:
   - { match: 'hours per week|weekly (availability|hours)',   key: hours_per_week }
   - { match: 'employment type|full-?time or contract|contract or full',
       key: employment_type }
+  # Restored: the label rule for a plain "Location" / "City" field. by_name
+  # covered name="location" but a labelled field with no name attribute -- which
+  # is what a real Greenhouse form uses -- matched nothing at all.
+  - { match: 'country of residence|^country$|^country\b',   key: country }
+  - { match: '^location|^city\b|where are you based|based in|current city',
+      key: location }
   - { match: 'remote|work preference|hybrid',                key: remote_preference }
 
   # ----------------------------------------------------------- compensation
@@ -114,7 +132,7 @@ by_label:
       key: current_title }
   - { match: 'reason for leaving|why (are you )?(looking|leaving)',
       key: reason_for_leaving }
-  - { match: 'previously (been )?employed|worked (here|for us|at this company) before|former employee',
+  - { match: 'previously (been )?employed|previously worked (at|for)|worked (here|for us|at this company) before|consulted for|former employee',
       key: worked_here_before }
   - { match: 'related to (a |any )?(current )?employee|family member.*employ',
       key: related_to_employee }

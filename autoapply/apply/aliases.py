@@ -26,21 +26,43 @@ DERIVED: dict[str, tuple[str, str]] = {
 }
 
 
+# An essay prompt is not a form label. Real ATS forms ask things like "please
+# share your rationale or evidence for the high school performance selections
+# above…" — 200+ characters that happen to contain a keyword. The bank's short
+# answers are never right for those, so anything this long parks for a human.
+# Verified against a live Canonical Greenhouse form, where the greedy
+# `school|university` rule would otherwise have typed a university name into
+# three unrelated essay boxes.
+MAX_LABEL_LEN = 120
+
+
 @lru_cache(maxsize=1)
 def _table() -> tuple[dict[str, str],
-                      tuple[tuple[re.Pattern[str], str, str | None], ...]]:
+                      tuple[tuple[re.Pattern[str], str, str | None], ...],
+                      tuple[re.Pattern[str], ...]]:
     raw = yaml.safe_load(TABLE.read_text()) or {}
     by_name = {k.lower(): v for k, v in (raw.get("by_name") or {}).items()}
+    never = tuple(re.compile(pat, re.I) for pat in (raw.get("never_map") or []))
     by_label = tuple(
         (re.compile(rule["match"], re.I), rule["key"], rule.get("type"))
         for rule in (raw.get("by_label") or [])
     )
-    return by_name, by_label
+    return by_name, by_label, never
 
 
 def key_for(field: FormField) -> str | None:
     """Answer-bank key for this field, or None if the table does not know it."""
-    by_name, by_label = _table()
+    by_name, by_label, never = _table()
+
+    label_raw = normalise_label(field.label)
+
+    # Blocklist first: these are questions that merely CONTAIN a keyword the
+    # table knows, and answering them from the bank would be confidently wrong.
+    for pattern in never:
+        if pattern.search(label_raw):
+            return None
+    if len(label_raw) > MAX_LABEL_LEN:
+        return None
 
     name = normalise_name(field.name).lower().strip("[]_ ")
     if name in by_name:

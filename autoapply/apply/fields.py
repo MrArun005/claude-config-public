@@ -125,7 +125,31 @@ _DISCOVER_JS = """
       const t = document.getElementById(e.getAttribute('aria-labelledby'));
       if (t) lbl = t.innerText;
     }
-    if (!lbl) lbl = e.getAttribute('aria-label') || e.placeholder || e.name || '';
+    if (!lbl) lbl = e.getAttribute('aria-label') || e.placeholder || '';
+    if (!lbl) {
+      // Custom comboboxes (React-Select and friends, used by Greenhouse's
+      // newer boards) render a bare <input> with no id, no name and no ARIA,
+      // wrapped in a div whose only text is "Select...". The real question
+      // lives in a sibling ABOVE the widget. Walk up a few levels and take the
+      // first label-ish element, but only from an ancestor that owns exactly
+      // one control -- otherwise we would steal the neighbouring question's
+      // label and answer the wrong box, which is worse than not answering.
+      let node = e.parentElement;
+      for (let up = 0; up < 5 && node && !lbl; up++, node = node.parentElement) {
+        // Count only VISIBLE controls: React-Select pairs its text input with a
+        // hidden one, so counting everything sees 2 and bails out one level
+        // below the element that actually carries the question.
+        const owned = node.querySelectorAll(
+          'input:not([type=hidden]),select,textarea').length;
+        if (owned !== 1) break;
+        const cand = node.querySelector('label,legend,[class*="label"],[class*="Label"]');
+        if (cand && cand.innerText && cand.innerText.trim()) {
+          lbl = cand.innerText;
+          break;
+        }
+      }
+    }
+    if (!lbl) lbl = e.name || '';
     return {
       tag: e.tagName.toLowerCase(),
       type: (e.type || e.tagName.toLowerCase()),
