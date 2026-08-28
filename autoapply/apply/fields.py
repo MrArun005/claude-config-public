@@ -62,7 +62,7 @@ class FormField:
         A checkbox inside a fieldset whose legend differs from its own label is
         an option, not a question: "Yes" means nothing without the legend.
         """
-        return (self.type == "checkbox" and bool(self.group)
+        return (self.type in ("checkbox", "radio") and bool(self.group)
                 and normalise_label(self.group) != normalise_label(self.label))
 
     @property

@@ -124,7 +124,8 @@ async def run(job_url: str, *, company: str | None = None, role: str | None = No
               headless: bool = True, dry_run: bool = False,
               plan_only: bool = False,
               resolver: Resolver | None = None,
-              bank: AnswerBank | None = None) -> dict:
+              bank: AnswerBank | None = None,
+              ctx=None) -> dict:
     """Apply to one job. Returns a result dict; never raises for flow control."""
     started = time.time()
     resolver = resolver or NullResolver()
@@ -136,7 +137,7 @@ async def run(job_url: str, *, company: str | None = None, role: str | None = No
     try:
         return await _run_with_ledger(con, job_url, app_id, platform, company,
                                       role, headless, dry_run, plan_only,
-                                      resolver, bank, started)
+                                      resolver, bank, started, ctx)
     finally:
         # Closed here, not in the inner finally: the duplicate-skip path returns
         # before the browser is ever opened, and used to leak the connection.
@@ -145,7 +146,7 @@ async def run(job_url: str, *, company: str | None = None, role: str | None = No
 
 async def _run_with_ledger(con, job_url, app_id, platform, company, role,
                            headless, dry_run, plan_only, resolver, bank,
-                           started) -> dict:
+                           started, ctx=None) -> dict:
     fresh = ledger.register(con, app_id, job_url, platform)
     if not fresh:
         row = ledger.lookup(con, job_url) or {}
@@ -165,10 +166,12 @@ async def _run_with_ledger(con, job_url, app_id, platform, company, role,
                         (("company", company), ("role", role)) if v is not None}
     adapters = [GenericFormAdapter(bank=bank, template_context=template_context)]
 
-    pw = ctx = None
+    pw = None
+    borrowed = ctx is not None      # a caller's context: do not close it
     rung = 1
     try:
-        pw, ctx = await browser.open_context(headless=headless)
+        if ctx is None:
+            pw, ctx = await browser.open_context(headless=headless)
 
         plat = _known_platform(platform)
         if plat is not None:
@@ -286,7 +289,9 @@ async def _run_with_ledger(con, job_url, app_id, platform, company, role,
         return {"status": "failed", "app_id": app_id, "rung": rung,
                 "error": f"{type(exc).__name__}: {exc}"}
     finally:
-        if pw is not None and ctx is not None:
+        # A borrowed context stays open, tabs and all, so a human can look at
+        # what was submitted instead of trusting a confirmed=False flag.
+        if not borrowed and pw is not None and ctx is not None:
             await browser.close_context(pw, ctx)
 
 

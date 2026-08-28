@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from state import questions
 from state.answers import (AnswerBank, Filled, TEMPLATE_MARKER,
                            is_placeholder)
 
@@ -140,6 +141,10 @@ class GenericFormAdapter:
         result = Result()
         # Grouped choices, keyed by normalised legend: did any option match?
         groups: dict[str, dict] = {}
+        # Every question this form asked, so the same gap is never rediscovered
+        # silently on the next posting (plan §5.3: escalations are per unique
+        # question, not per application).
+        seen_questions: list[dict] = []
 
         found = await discover(page)
         if not ckpt.pending_fields:
@@ -183,7 +188,19 @@ class GenericFormAdapter:
                 continue
 
             key = resolutions.get(f"{platform}::{sig}") or aliases.key_for(field)
+            seen_questions.append({
+                "signature": sig, "question": field.question,
+                "option": field.label if field.is_option else None,
+                "key": key, "required": field.required,
+                "type": field.type, "platform": platform,
+            })
 
+            # Deliberately NOT guessing at an unlabelled file input. It is
+            # tempting to treat the first upload slot on a job application as
+            # the résumé, but the live Supabase form has two file inputs and the
+            # real one is properly labelled "Resume" -- the unlabelled one is
+            # something else. Guessing would have attached the CV to the wrong
+            # slot while the correct field filled anyway.
             if key is None:
                 if not field.required:
                     # An unmapped OPTIONAL question is not worth halting the
@@ -195,7 +212,11 @@ class GenericFormAdapter:
                     result.unresolved.append(
                         f"{field.describe()}: no mapping (optional, left blank)")
                     continue
-                raise UnknownField(sig, field.label or field.name or field.selector)
+                # Record before escalating: this raise leaves apply() entirely,
+                # so the log written at the end never runs -- and the question
+                # that BLOCKED the application is exactly the one worth keeping.
+                questions.record(seen_questions)
+                raise UnknownField(sig, field.question or field.name or field.selector)
 
             if key == SKIP_KEY:
                 result.skipped.append(field.describe())
@@ -256,6 +277,7 @@ class GenericFormAdapter:
                 result.unresolved.append(
                     f"{seen['describe']}: no option matched the banked answer")
 
+        questions.record(seen_questions)
         return result.as_dict() | {"_result": result}
 
     def _why_no_answer(self, key: str) -> str:
@@ -350,7 +372,7 @@ class GenericFormAdapter:
             await page.set_input_files(sel, str(path))
             return str(path)
 
-        if kind == "checkbox" and field.is_option:
+        if kind in ("checkbox", "radio") and field.is_option:
             # One option of a grouped choice ("Yes" / "No" / "Prefer not to
             # say"). Tick it only if THIS option is the answer; the others are
             # left alone. Whether the group ended up answered at all is checked

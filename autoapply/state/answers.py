@@ -27,7 +27,19 @@ from pathlib import Path
 import paths
 import yaml  # pip install pyyaml
 
-BANK = Path(__file__).parent / "answers.yaml"
+def _default_bank() -> Path:
+    """Prefer $AUTOAPPLY_HOME/answers.yaml over the copy inside the repo.
+
+    The bank is the most expensive thing here -- an hour of answering questions
+    -- and keeping it beside the code means it dies with a re-clone, a checkout
+    or a throwaway working copy. Under the state directory it outlives all of
+    them, and a repo copy still works as a fallback for a fresh install.
+    """
+    durable = paths.under("answers.yaml")
+    return durable if durable.exists() else Path(__file__).parent / "answers.yaml"
+
+
+BANK = _default_bank()
 REVIEW_QUEUE = paths.under("review-queue.jsonl")
 
 # Deliberately narrow: these are the shapes the shipped template actually uses
