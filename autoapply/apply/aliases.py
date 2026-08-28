@@ -55,7 +55,10 @@ def key_for(field: FormField) -> str | None:
     """Answer-bank key for this field, or None if the table does not know it."""
     by_name, by_label, never = _table()
 
-    label_raw = normalise_label(field.label)
+    # For one option of a grouped choice this is the fieldset's legend, not the
+    # option's own label: mapping "Yes" would be meaningless, and matching the
+    # question is what tells us which answer the group is asking for.
+    label_raw = normalise_label(field.question)
 
     # Blocklist first: these are questions that merely CONTAIN a keyword the
     # table knows, and answering them from the bank would be confidently wrong.
@@ -66,7 +69,7 @@ def key_for(field: FormField) -> str | None:
     if name in by_name:
         return by_name[name]
 
-    label = normalise_label(field.label)
+    label = label_raw
     if label:
         for pattern, key, want_type, long_ok in by_label:
             # An optional `type:` constraint lets one label mean two things:

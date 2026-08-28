@@ -50,6 +50,25 @@ class FormField:
     required: bool
     options: tuple[str, ...] | None  # <select> choices, else None
     idx: int                       # stamped position, for the fallback selector
+    group: str = ""                # enclosing fieldset's legend, when there is
+                                   # one: for a choice rendered as several
+                                   # checkboxes this holds the QUESTION while
+                                   # `label` holds only this OPTION ("Yes")
+
+    @property
+    def is_option(self) -> bool:
+        """True when this control is one option of a grouped choice.
+
+        A checkbox inside a fieldset whose legend differs from its own label is
+        an option, not a question: "Yes" means nothing without the legend.
+        """
+        return (self.type == "checkbox" and bool(self.group)
+                and normalise_label(self.group) != normalise_label(self.label))
+
+    @property
+    def question(self) -> str:
+        """The text a human would call this field's question."""
+        return self.group if self.is_option else self.label
 
     @property
     def selector(self) -> str:
@@ -71,8 +90,10 @@ class FormField:
     def describe(self) -> str:
         """Human-readable, for review-queue reasons. Uses the normalised label so
         a form's own "*" marker is not doubled up with ours."""
-        base = normalise_label(self.label) or self.name or self.selector
-        return f"{base}{' *' if self.required else ''} [{self.tag}/{self.type}]"
+        base = normalise_label(self.question) or self.name or self.selector
+        opt = f" = {normalise_label(self.label)!r}" if self.is_option else ""
+        return (f"{base}{opt}{' *' if self.required else ''} "
+                f"[{self.tag}/{self.type}]")
 
 
 def normalise_label(label: str) -> str:
@@ -96,6 +117,10 @@ def signature(field: FormField) -> str:
         field.type,
         normalise_name(field.name),
         normalise_label(field.label),
+        # The group matters: "Yes" under one question is a different field from
+        # "Yes" under another, and without this they would share a signature,
+        # collapse into one during dedupe, and share a cached resolution.
+        normalise_label(field.group),
     ])
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
 
@@ -159,11 +184,22 @@ _DISCOVER_JS = """
       }
     }
     if (!lbl) lbl = e.name || '';
+    // A choice rendered as several checkboxes puts the QUESTION in the
+    // fieldset's <legend> and each OPTION in its own label, so "Yes" alone is
+    // meaningless. Semantic HTML, so read it rather than guess: the legend is
+    // the question, the label is the option.
+    let group = '';
+    const fs = e.closest('fieldset');
+    if (fs) {
+      const lg = fs.querySelector('legend');
+      if (lg && lg.innerText) group = lg.innerText.replace(/\\s+/g, ' ').trim();
+    }
     return {
       tag: e.tagName.toLowerCase(),
       type: (e.type || e.tagName.toLowerCase()),
       name: e.name || '',
       id: e.id || '',
+      group: group,
       label: lbl.replace(/\\s+/g, ' ').trim(),
       required: !!(e.required || e.getAttribute('aria-required') === 'true'
                    || /\\*|\\(\\s*required\\s*\\)/i.test(lbl)),
@@ -189,7 +225,7 @@ async def discover(page) -> list[FormField]:
             tag=r["tag"], type=r["type"], name=r["name"], id=r["id"],
             label=r["label"], required=r["required"],
             options=tuple(r["options"]) if r["options"] is not None else None,
-            idx=r["idx"],
+            idx=r["idx"], group=r.get("group", ""),
         )
         for r in await page.evaluate(_DISCOVER_JS, IDX_ATTR)
     ])

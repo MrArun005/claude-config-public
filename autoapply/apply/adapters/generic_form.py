@@ -27,7 +27,7 @@ from state.answers import (AnswerBank, Filled, TEMPLATE_MARKER,
 
 from .. import aliases
 from ..adapter import UnknownField, load_resolutions
-from ..fields import FormField, discover
+from ..fields import FormField, discover, normalise_label
 from ..templates import Unrenderable, render
 
 TEXT_TYPES = frozenset({
@@ -127,6 +127,8 @@ class GenericFormAdapter:
         platform = profile.get("platform", "")
         resolutions = load_resolutions()
         result = Result()
+        # Grouped choices, keyed by normalised legend: did any option match?
+        groups: dict[str, dict] = {}
 
         found = await discover(page)
         if not ckpt.pending_fields:
@@ -200,6 +202,23 @@ class GenericFormAdapter:
                     result.required_unfilled.append(field.describe())
                 continue
 
+            if field.is_option:
+                # One option of a grouped choice. `entered` is None when this
+                # was not the chosen option, which is a normal outcome for two
+                # of every three checkboxes -- so it must not count as a filled
+                # field, and the group's own bookkeeping decides the rest.
+                seen = groups.setdefault(normalise_label(field.group),
+                                         {"required": False, "answered": False,
+                                          "describe": field.describe()})
+                seen["required"] = seen["required"] or field.required
+                if entered is not None:
+                    seen["answered"] = True
+                    result.filled[field.group] = answer
+                ckpt.record(sig, {"label": field.label, "key": key,
+                                  "value": entered, "provenance": answer.provenance},
+                            action=f"option:{key}")
+                continue
+
             label = field.label or field.name or sig
             result.filled[label] = answer
             # Recorded after EVERY field, not every page — the crash-proofing
@@ -209,6 +228,15 @@ class GenericFormAdapter:
             ckpt.record(sig, {"label": label, "key": key, "value": entered,
                               "provenance": answer.provenance},
                         action=f"fill:{key}")
+
+        # A required grouped choice where no option matched the bank answer is
+        # an unanswered required question, even though every individual checkbox
+        # was handled without error. Only the group can see this.
+        for norm, seen in groups.items():
+            if seen["required"] and not seen["answered"]:
+                result.required_unfilled.append(seen["describe"])
+                result.unresolved.append(
+                    f"{seen['describe']}: no option matched the banked answer")
 
         return result.as_dict() | {"_result": result}
 
@@ -303,6 +331,22 @@ class GenericFormAdapter:
                 raise _Unfillable(f"file not found: {path}")
             await page.set_input_files(sel, str(path))
             return str(path)
+
+        if kind == "checkbox" and field.is_option:
+            # One option of a grouped choice ("Yes" / "No" / "Prefer not to
+            # say"). Tick it only if THIS option is the answer; the others are
+            # left alone. Whether the group ended up answered at all is checked
+            # once per group in apply(), because no single option can know.
+            chosen = None
+            for candidate in (value, *_alternates(alt)):
+                if _match_option(candidate, (field.label,)) is not None:
+                    chosen = candidate
+                    break
+            if chosen is None:
+                await page.uncheck(sel)
+                return None                    # not this option
+            await page.check(sel)
+            return field.label
 
         if kind == "checkbox":
             if not isinstance(value, bool):

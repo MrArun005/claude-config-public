@@ -163,6 +163,11 @@ by_label:
   - { match: 'gender|sex$',                                  key: gender }
   - { match: 'race|ethnic|hispanic|latino',                   key: ethnicity }
   - { match: 'veteran|military',                             key: veteran_status }
+  # Accommodation / accessibility request. Phrased at essay length by most
+  # employers, and often a required grouped choice, so long_ok.
+  - { match: 'require any (adjustments|accommodations)|accessible hiring|
+             accessible and inclusive|reasonable accommodation',
+      key: accommodations_required, long_ok: true }
   - { match: 'disab',                                        key: disability_status }
 
   # ------------------------------------------------------------- screening
