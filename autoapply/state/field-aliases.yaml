@@ -98,7 +98,7 @@ by_label:
   # covered name="location" but a labelled field with no name attribute -- which
   # is what a real Greenhouse form uses -- matched nothing at all.
   - { match: 'country of residence|^country$|^country\b',   key: country }
-  - { match: '^location|^city\b|where are you based|based in|current city',
+  - { match: '^location|^city\b|where are you (currently )?based|based in|current city',
       key: location }
   - { match: 'remote|work preference|hybrid',                key: remote_preference }
 
