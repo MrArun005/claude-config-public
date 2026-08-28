@@ -94,7 +94,17 @@ async def drive(jobs: list, bank: AnswerBank, dry_run: bool, port: int) -> list:
 
     results = []
     async with async_playwright() as pw:
-        b = await pw.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
+        # A killed Chrome can leave the port listening, so port_open() says yes
+        # and the CDP handshake then hangs for its full timeout. Fail fast and
+        # let the caller relaunch rather than waiting three minutes.
+        try:
+            b = await pw.chromium.connect_over_cdp(f"http://127.0.0.1:{port}",
+                                                   timeout=20000)
+        except Exception as exc:
+            raise RuntimeError(
+                f"could not attach to Chrome on {port} ({type(exc).__name__}). "
+                f"A dead Chrome may still hold the port -- close it and retry."
+            ) from exc
         ctx = b.contexts[0] if b.contexts else await b.new_context()
 
         for i, job in enumerate(jobs, 1):

@@ -111,6 +111,35 @@ def _known_platform(host: str):
     return None
 
 
+APPLY_TRIGGERS = ('a:has-text("Apply now")', 'button:has-text("Apply now")',
+                  'a:has-text("Apply for this job")',
+                  'button:has-text("Apply for this job")',
+                  'a:has-text("Apply")', 'button:has-text("Apply")')
+
+
+async def _open_application_form(page) -> bool:
+    """Click through to the form when the landing page only links to it.
+
+    Company careers pages routinely host the job description and an "Apply"
+    button, with the actual Greenhouse form behind it -- Fivetran and Elastic
+    both redirect their board URLs to exactly that. Returns True if a form
+    appeared. Clicks nothing that submits: these are navigation controls, and
+    the real submit is found separately by _find_submit.
+    """
+    for selector in APPLY_TRIGGERS:
+        try:
+            trigger = page.locator(selector).first
+            if not await trigger.count():
+                continue
+            await trigger.click(timeout=6000)
+            await page.wait_for_selector("form, input:not([type=hidden])",
+                                         timeout=FORM_WAIT_MS)
+            return True
+        except Exception:
+            continue          # try the next phrasing, then give up to rung 3
+    return False
+
+
 async def _find_submit(page):
     for sel in ('button[type="submit"]', 'input[type="submit"]',
                 'button:has-text("Submit application")', 'button:has-text("Submit")'):
@@ -193,7 +222,12 @@ async def _run_with_ledger(con, job_url, app_id, platform, company, role,
             await page.wait_for_selector("form, input:not([type=hidden])",
                                          timeout=FORM_WAIT_MS)
         except PlaywrightTimeoutError:
-            pass          # genuinely no form; rung 3 below is then correct
+            # Plenty of companies point their Greenhouse link at their OWN
+            # careers page, which carries the job description and an "Apply"
+            # button, and nothing else -- Fivetran and Elastic both redirect
+            # this way. The form is one click behind. Without this the page
+            # looks like it has no application at all and goes to rung 3.
+            await _open_application_form(page)
 
         adapter = dispatch(adapters, job_url, await page.content())
         if adapter is None:
