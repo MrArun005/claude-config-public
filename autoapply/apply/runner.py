@@ -47,6 +47,10 @@ from .fields import platform_of
 # A submit click waits this long for a navigation, then proceeds regardless.
 SUBMIT_TIMEOUT_MS = 15_000
 
+# How long to let a client-rendered application form appear before concluding
+# the page has none. Ashby and SmartRecruiters both need this.
+FORM_WAIT_MS = 8_000
+
 # A field cannot bounce through rung 2 forever; each pass must make progress.
 MAX_RESOLUTION_PASSES = 8
 
@@ -177,6 +181,16 @@ async def _run_with_ledger(con, job_url, app_id, platform, company, role,
 
         page = await ctx.new_page()
         await page.goto(job_url, wait_until="domcontentloaded")
+
+        # Ashby and SmartRecruiters render the application form client-side, so
+        # at domcontentloaded the HTML holds no <form> at all and dispatch
+        # reported "no adapter matched" for a page that plainly has one. Wait
+        # for the form to appear before deciding.
+        try:
+            await page.wait_for_selector("form, input:not([type=hidden])",
+                                         timeout=FORM_WAIT_MS)
+        except PlaywrightTimeoutError:
+            pass          # genuinely no form; rung 3 below is then correct
 
         adapter = dispatch(adapters, job_url, await page.content())
         if adapter is None:

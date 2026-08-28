@@ -118,9 +118,20 @@ class GenericFormAdapter:
 
     # --- rung-1 dispatch ------------------------------------------------
     def matches(self, url: str, html: str) -> bool:
-        if not re.search(r"<form\b", html, re.I):
-            return False
-        return bool(re.search(r"<(input|select|textarea)\b", html, re.I))
+        controls = len(re.findall(r"<(input|select|textarea)\b", html, re.I))
+        if re.search(r"<form\b", html, re.I):
+            return controls > 0
+
+        # Ashby ships its application with NO <form> element at all: a live
+        # Supabase posting has 17 inputs, an upload button and a "Submit
+        # Application" button, and not one form tag. Requiring <form> sent that
+        # page to rung 3 as if it had no application. So fall back to "enough
+        # controls plus something that submits", which a job DESCRIPTION page
+        # does not have -- a live SmartRecruiters description page has one
+        # input and no submit, and must still be rejected.
+        submits = re.search(r"submit application|submit your application|apply now",
+                            html, re.I)
+        return controls >= 5 and bool(submits)
 
     # --- the fill pass --------------------------------------------------
     async def apply(self, page, profile: dict, ckpt) -> dict:

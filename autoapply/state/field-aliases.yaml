@@ -101,6 +101,7 @@ by_label:
   # Restored: the label rule for a plain "Location" / "City" field. by_name
   # covered name="location" but a labelled field with no name attribute -- which
   # is what a real Greenhouse form uses -- matched nothing at all.
+  - { match: 'passport country|country of citizenship|nationality country', key: country }
   - { match: 'country of residence|^country$|^country\b',   key: country }
   - { match: '^location|^city\b|where are you (currently )?based|based in|current city',
       key: location }
