@@ -83,6 +83,13 @@ def _match_option(value, options: tuple[str, ...]) -> str | None:
     for opt in real:                                    # case-insensitive
         if opt.strip().lower() == want:
             return opt
+    # Prefix before substring. Typing "India" into a country picker offers
+    # ["British Indian Ocean Territory +246", "India +91"] -- both CONTAIN
+    # "india", and a substring rule could pick the wrong country outright.
+    starts = [o for o in real if want and o.strip().lower().startswith(want)]
+    if len(starts) == 1:
+        return starts[0]
+
     hits = [o for o in real if want and want in o.strip().lower()]
     return hits[0] if len(hits) == 1 else None          # ambiguous -> None
 
@@ -99,6 +106,79 @@ def _alternates(alt) -> list:
     if isinstance(alt, (list, tuple)):
         return [a for a in alt if a is not None]
     return [alt]
+
+
+async def _visible_options(page, container, limit: int = 30) -> list:
+    """The options of the dropdown that is actually open, as (locator, text).
+
+    Scoped and visibility-filtered on purpose. A bare
+    `[role="option"]` search across the page also matches the phone
+    country-code list (intl-tel-input renders 200+ hidden role="option" items),
+    and a live GitLab run spent 30s trying to click a hidden Åland Islands entry
+    before timing out. Prefer the widget's own menu, then any visible option.
+    """
+    for scope, selector in ((container, '[class*="select__option"], [role="option"]'),
+                            (page, '[class*="select__option"]'),
+                            (page, '[role="option"]')):
+        try:
+            loc = scope.locator(selector)
+            count = min(await loc.count(), limit)
+        except Exception:
+            continue
+        out = []
+        for i in range(count):
+            item = loc.nth(i)
+            try:
+                if not await item.is_visible():
+                    continue
+                text = (await item.inner_text()).strip()
+            except Exception:
+                continue
+            if text:
+                out.append((item, text))
+        if out:
+            return out
+    return []
+
+
+async def _selection_took(container, chosen: str) -> bool:
+    """Did the widget actually accept `chosen`?
+
+    Compared loosely on purpose, in BOTH directions. A country picker offers
+    "India +91" but then displays only "+91", so requiring the displayed text to
+    contain the option label rejected a selection that had plainly landed. What
+    matters is that something non-placeholder is shown and it relates to what we
+    picked -- not that the two strings are equal.
+    """
+    shown = await _shown_value(container)
+    if not shown:
+        return False
+    low, pick = shown.strip().lower(), chosen.strip().lower()
+    if "select..." in low:
+        return False
+    return low in pick or pick in low or _match_option(chosen, (shown,)) is not None
+
+
+async def _shown_value(container) -> str:
+    """What a combobox is currently displaying as its chosen value.
+
+    React-Select clears its input once a choice is made and renders the value in
+    a `singleValue` element, so the input is the wrong place to look. Falls back
+    to the container's text, which also carries the question label -- good
+    enough for a contains-check, and better than trusting a fill blindly.
+    """
+    for sel in ('[class*="singleValue"]', '[class*="single-value"]',
+                '[class*="multiValue"]', '[class*="multi-value"]'):
+        try:
+            loc = container.locator(sel)
+            if await loc.count():
+                return (await loc.first.inner_text()).strip()
+        except Exception:
+            continue
+    try:
+        return (await container.inner_text()).strip()
+    except Exception:
+        return ""
 
 
 def _as_text(value) -> str:
@@ -359,6 +439,96 @@ class GenericFormAdapter:
                 return None
         return found
 
+    async def _fill_combobox(self, page, field: FormField, value, alt):
+        """Choose an option in a custom combobox, and verify it actually took.
+
+        page.fill() is useless here. React-Select is a controlled component: the
+        text goes into its input, no option is selected, and the form still
+        considers the field empty. A live GitLab application reported 22 fields
+        filled while every one of its 13 comboboxes came back "Select... This
+        field is required."
+
+        So: click to open, type to filter, and click the option whose text
+        genuinely matches the answer -- never simply the first one offered. Then
+        read the widget back, because a filler that cannot tell success from
+        failure is how the earlier false "filled" counts happened.
+        """
+        sel = field.selector
+        # The nearest 'select'-classed ancestor is select__input, which is empty;
+        # the chosen value renders in select__control. Getting this wrong made
+        # every verification fail even when the choice had landed.
+        container = page.locator(sel).locator(
+            "xpath=(ancestor::*[contains(@class,'select__control') or "
+            "contains(@class,'select__container')])[last()]")
+
+        for candidate in (value, *_alternates(alt)):
+            text = _as_text(candidate)
+            try:
+                await page.click(sel, timeout=5000)
+                await page.wait_for_timeout(400)
+            except Exception as exc:
+                raise _Unfillable(f"could not open the dropdown: "
+                                  f"{type(exc).__name__}") from exc
+
+            # Click the matching option directly. Typing to filter re-renders
+            # the menu and made captured locators go stale; with the menu simply
+            # open, the options are stable. Long lists (country pickers) get one
+            # typed pass to narrow them first.
+            options = await _visible_options(page, container)
+            if len(options) > 15:
+                try:
+                    await page.type(sel, text[:24], delay=10)
+                    await page.wait_for_timeout(450)
+                    options = await _visible_options(page, container)
+                except Exception:
+                    pass
+            # Match against the WHOLE option list in one call, not one option at
+            # a time. Per-option checks defeat the ambiguity guard: "India"
+            # against ["British Indian Ocean Territory +246", "India +91"] looks
+            # like a match on either in isolation, and the wrong country would
+            # be clicked. Given the full list, prefix beats substring.
+            chosen = _match_option(text, tuple(t for _, t in options))
+            if chosen is not None:
+                for opt, opt_text in options:
+                    if opt_text != chosen:
+                        continue
+                    try:
+                        await opt.click(timeout=4000)
+                        await page.wait_for_timeout(300)
+                    except Exception:
+                        break
+                    if await _selection_took(container, chosen):
+                        return chosen
+                    break
+
+            # Commit with Enter rather than clicking an option element. React
+            # re-renders the menu as you type, so a locator captured a moment
+            # earlier goes stale and the click times out -- a live GitLab run
+            # spent 30s on exactly that. Enter selects whatever the widget has
+            # highlighted, and the verification below is what keeps it honest.
+            try:
+                await page.keyboard.press("Enter")
+                await page.wait_for_timeout(350)
+            except Exception:
+                pass
+
+            shown = await _shown_value(container)
+            # Only accept it if the widget now DISPLAYS the answer. Without this
+            # a silent no-op read as a successful fill, which is how 22 fields
+            # were reported filled while the form saw none of them.
+            if shown and _match_option(text, (shown,)) is not None:
+                return shown
+
+            try:
+                await page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+        offered = [t for _, t in await _visible_options(page, container, limit=8)]
+        raise _Unfillable(
+            f"no option matches {value!r}"
+            + (f" (offered: {', '.join(o for o in offered if o)})" if offered else ""))
+
     # --- the actual typing ----------------------------------------------
     async def _fill(self, page, field: FormField, value, alt=None):
         """Enter `value` into the control. Returns what was actually entered."""
@@ -400,6 +570,9 @@ class GenericFormAdapter:
             else:
                 await page.uncheck(sel)
             return value
+
+        if field.combobox:
+            return await self._fill_combobox(page, field, value, alt)
 
         if kind.startswith("select"):
             opt = None

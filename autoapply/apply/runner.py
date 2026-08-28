@@ -272,6 +272,17 @@ async def _run_with_ledger(con, job_url, app_id, platform, company, role,
         # successful XHR submit from a silent validation failure.
         evidence = await _capture(page, app_id, confirmed)
 
+        if evidence["verdict"] == "validation error text found":
+            # The click landed and the form REJECTED it. Recording this as
+            # "submitted" is worse than useless: the ledger then refuses to ever
+            # retry the job, so a failed application looks permanently done. A
+            # live GitLab run hit exactly this -- 22 fields reported filled,
+            # every dropdown still reading "This field is required".
+            return _park(con, app_id, job_url, rung,
+                         [f"the form rejected the submission: "
+                          f"{evidence['excerpt'][:200]}"],
+                         started, filled=len(res.filled))
+
         ledger.set_status(con, app_id, "submitted", rung=rung, human_secs=0)
         if confirmed:
             ckpt.done()
@@ -298,8 +309,13 @@ async def _run_with_ledger(con, job_url, app_id, platform, company, role,
 SUCCESS_HINTS = ("thank you for applying", "application received",
                  "application submitted", "we have received",
                  "thanks for applying", "successfully submitted")
-FAILURE_HINTS = ("please complete", "is required", "required field",
-                 "there was a problem", "please correct", "invalid")
+# Deliberately specific. "required field" also appears in Greenhouse's harmless
+# legend "* indicates a required field", which is on EVERY form -- matching that
+# made a successful submission look like a validation failure and parked it.
+# These are the strings a form prints only when it has actually rejected input.
+FAILURE_HINTS = ("this field is required", "please complete this",
+                 "there was a problem", "please correct", "fix the following",
+                 "cannot be blank")
 
 
 async def _capture(page, app_id: str, confirmed: bool) -> dict:

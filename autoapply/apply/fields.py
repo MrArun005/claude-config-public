@@ -50,6 +50,7 @@ class FormField:
     required: bool
     options: tuple[str, ...] | None  # <select> choices, else None
     idx: int                       # stamped position, for the fallback selector
+    combobox: bool = False         # a text input that behaves as a dropdown
     group: str = ""                # enclosing fieldset's legend, when there is
                                    # one: for a choice rendered as several
                                    # checkboxes this holds the QUESTION while
@@ -200,6 +201,15 @@ _DISCOVER_JS = """
       name: e.name || '',
       id: e.id || '',
       group: group,
+      // A custom combobox (React-Select and friends) is a plain text input that
+      // only LOOKS like a dropdown. page.fill() writes text into it and the
+      // component ignores it, because the value is controlled state and no
+      // option was ever chosen -- the form then reports the field as empty.
+      // Detected here so the filler can click-type-Enter instead.
+      combobox: !!(e.getAttribute('role') === 'combobox'
+                   || e.getAttribute('aria-autocomplete')
+                   || e.closest('[class*="select__"],[class*="select-shell"],'
+                              + '[class*="react-select"],[role="combobox"]')),
       label: lbl.replace(/\\s+/g, ' ').trim(),
       required: !!(e.required || e.getAttribute('aria-required') === 'true'
                    || /\\*|\\(\\s*required\\s*\\)/i.test(lbl)),
@@ -226,6 +236,7 @@ async def discover(page) -> list[FormField]:
             label=r["label"], required=r["required"],
             options=tuple(r["options"]) if r["options"] is not None else None,
             idx=r["idx"], group=r.get("group", ""),
+            combobox=bool(r.get("combobox")),
         )
         for r in await page.evaluate(_DISCOVER_JS, IDX_ATTR)
     ])

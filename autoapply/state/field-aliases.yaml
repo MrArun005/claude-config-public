@@ -103,6 +103,11 @@ by_label:
   # is what a real Greenhouse form uses -- matched nothing at all.
   - { match: 'passport country|country of citizenship|nationality country', key: country }
   - { match: 'country of residence|^country$|^country\b',   key: country }
+  # BEFORE the location rule, whose 'based in' pattern claims
+  # "This role is based in Bangalore. Which of the following describes you?"
+  # and answers a multiple-choice relocation question with a city name.
+  - { match: 'role is based in|which of the following describes you|based in bangalore',
+      key: based_in_location, long_ok: true }
   - { match: '^location|^city\b|where are you (currently )?based|based in|current city',
       key: location }
   # BEFORE the generic remote rule: the essay question contains the word
@@ -186,6 +191,10 @@ by_label:
   # ------------------------------------------------------------- screening
   - { match: 'how did you hear|referral|where did you (hear|find)|source',
       key: referral_source }
+  - { match: 'postgres|postgresql', key: postgres_experience, long_ok: true }
+  - { match: 'security/?vulnerability|vulnerability, dependency|
+             security scan|security domains',
+      key: security_domain_experience, long_ok: true }
   - { match: 'achievement|proudest|most significant (project|work)',
       key: notable_achievement }
   - { match: 'why (do you want to |are you interested in )?(work|join|apply)|why (this |our )?(company|us)|cover letter|motivation',
