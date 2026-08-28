@@ -46,6 +46,7 @@ from pathlib import Path
 
 import yaml
 
+import paths
 from state.answers import BANK, AnswerBank, is_placeholder
 
 from . import runner
@@ -171,7 +172,7 @@ async def run_batch(jobs: list[dict], *, bank_path: Path, mode: str,
                                                "skip — intentionally left blank")]
             print(f"    {len(rows)} field(s), {len(blocked)} would block:")
             for r in blocked:
-                print(f"      ! {r['label']}  →  {r['verdict']}")
+                print(f"      ! {r['label']}  ->  {r['verdict']}")
         else:
             print(f"    {out['status']}"
                   + (f"  ({out.get('filled')} fields)" if out.get("filled") else ""))
@@ -237,6 +238,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--limit", type=int, help="stop after this many jobs")
     args = ap.parse_args(argv)
 
+    paths.init_console()
     mode = "plan" if args.plan else ("dry-run" if args.dry_run else "submit")
 
     try:

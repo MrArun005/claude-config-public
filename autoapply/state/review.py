@@ -85,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--bank", type=Path, default=BANK, help="answer bank path")
     args = ap.parse_args(argv)
 
+    paths.init_console()
     entries = _entries()
 
     if args.clear:

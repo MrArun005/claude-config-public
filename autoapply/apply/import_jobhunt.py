@@ -192,6 +192,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="keep only INDEX.md rows whose Status contains TEXT")
     args = ap.parse_args(argv)
 
+    paths.init_console()
     if not args.applications.is_dir():
         print(f"not a directory: {args.applications}", file=sys.stderr)
         return 2

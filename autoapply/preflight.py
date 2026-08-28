@@ -290,6 +290,8 @@ def check_otp() -> None:
 
 
 async def main() -> int:
+    import paths
+    paths.init_console()
     check_python()
     check_imports()
     if hard_failures():

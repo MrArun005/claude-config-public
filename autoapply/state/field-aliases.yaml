@@ -153,7 +153,7 @@ by_label:
   # -------------------------------------------------------------- EEO block
   # Voluntary by law. "Decline to self-identify" is a valid sourced answer.
   - { match: 'gender|sex$',                                  key: gender }
-  - { match: 'race|ethnic',                                  key: ethnicity }
+  - { match: 'race|ethnic|hispanic|latino',                   key: ethnicity }
   - { match: 'veteran|military',                             key: veteran_status }
   - { match: 'disab',                                        key: disability_status }
 

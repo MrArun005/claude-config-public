@@ -293,6 +293,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="show what WOULD be entered, filling nothing at all")
     args = ap.parse_args(argv)
 
+    paths.init_console()
     out = asyncio.run(run(args.job_url, company=args.company, role=args.role,
                           headless=not args.headed, dry_run=args.dry_run,
                           plan_only=args.plan))

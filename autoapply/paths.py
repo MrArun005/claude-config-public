@@ -11,6 +11,7 @@ mkdir, so an import can never leave a stray tree behind.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 
@@ -21,3 +22,19 @@ def home() -> Path:
 
 def under(*parts: str) -> Path:
     return home().joinpath(*parts)
+
+
+def init_console() -> None:
+    """Make stdout/stderr survive non-ASCII on a Windows console.
+
+    Windows defaults to cp1252, which cannot encode the arrows, em-dashes and
+    accented characters this tool prints (and which real job-application forms
+    are full of). Without this, printing a single character crashes the run --
+    a batch died on job 1 of 12 for exactly that reason. errors="replace" keeps
+    output legible rather than raising, on any console.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass          # already fine, or not reconfigurable
