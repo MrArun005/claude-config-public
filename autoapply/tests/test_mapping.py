@@ -104,6 +104,20 @@ CASES = [
     # Real GitLab phrasing the original pattern missed.
     ("Have you previously worked at or consulted for GitLab?", "text",
      "worked_here_before"),
+    # Verbosely-phrased yes/no questions. This one is 137 characters, so the
+    # essay guard would park it, and it also contains "current employer", which
+    # the current_company rule would claim first. Both orderings are load-bearing.
+    ("Are you subject to any employment agreements and/or post-employment "
+     "restrictions with your current employer or a past employer?", "text",
+     "employment_restrictions"),
+    ("Current company", "text", "current_company"),
+    ("Current employer", "text", "current_company"),
+    # Preferred name must not be captured by the first_name or full_name rules.
+    ("What's the name you'd prefer us to use throughout the interview process?",
+     "text", "preferred_name"),
+    ("Preferred first name", "text", "preferred_name"),
+    ("First Name", "text", "first_name"),
+
     # Greenhouse labels the résumé upload "Attach".
     ("Attach", "file", "resume_path"),
 ]

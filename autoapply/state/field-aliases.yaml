@@ -50,6 +50,8 @@ by_label:
   # ---------------------------------------------------------------- contact
   - { match: '^(first|given)\s*name',                        key: first_name }
   - { match: '^(last|family|sur)\s*name',                    key: last_name }
+  - { match: 'name you.{0,3}d prefer|preferred (first )?name|prefer us to use',
+      key: preferred_name }
   - { match: '^(full\s*)?(legal\s*)?name$',                  key: full_name }
   - { match: 'e-?mail',                                      key: email }
   - { match: 'phone|mobile|contact number',                  key: phone }
@@ -127,6 +129,10 @@ by_label:
       key: years_experience }
 
   # ---------------------------------------------------------------- history
+  # long_ok: this question is routinely phrased at essay length but is a
+  # plain yes/no with a bankable answer.
+  - { match: 'employment agreement|post.?employment|non.?compete|restrictive covenant',
+      key: employment_restrictions, long_ok: true }
   - { match: 'current (company|employer)|present employer',  key: current_company }
   - { match: 'current (title|role|position)|job title|designation',
       key: current_title }
